@@ -239,20 +239,23 @@ var start=document.getElementById('start'),cash=document.getElementById('cash'),
 function reset(){result.classList.remove('show','loss')}
 start.addEventListener('click',reset);
 cash.addEventListener('click',function(){
- if(cash.disabled)return;
- requestAnimationFrame(function(){
-  var match=(mult.textContent||'').match(/[0-9]+(?:[.,][0-9]+)?/);var factor=match?Number(match[0].replace(',','.')):1;
-  var stake=Number(document.getElementById('stake').value)||0;
-  var cur=document.getElementById('currency').value;
-  result.querySelector('.tcFactor').textContent='×'+factor.toFixed(2);
-  result.querySelector('.tcAmount').textContent=(stake*factor).toFixed(2)+' '+cur;
-  result.querySelector('.tcSub').textContent='Выигрыш!';
-  result.classList.remove('loss');result.classList.add('show');
- });
+ // The game handler disables cash immediately after payout; read confirmed win from status instead.
+ requestAnimationFrame(showConfirmedWin);
 });
+function showConfirmedWin(){
+ var txt=status.textContent||'';
+ var match=txt.match(/Забрано\\s+([0-9]+(?:[.,][0-9]+)?)\\s+([A-Z]+)/);
+ if(!match)return;
+ var factorMatch=(mult.textContent||'').match(/[0-9]+(?:[.,][0-9]+)?/);
+ var factor=factorMatch?Number(factorMatch[0].replace(',','.')):1;
+ result.querySelector('.tcFactor').textContent='×'+factor.toFixed(2);
+ result.querySelector('.tcAmount').textContent=Number(match[1].replace(',','.')).toFixed(2)+' '+match[2];
+ result.querySelector('.tcSub').textContent='ВЫИГРЫШ!';
+ result.classList.remove('loss');result.classList.add('show');
+}
 var observer=new MutationObserver(function(){
  var txt=status.textContent||'';
- if(txt.includes('Ракета взорвалась')){
+ if(txt.includes('Забрано')){showConfirmedWin();}\n if(txt.includes('Ракета взорвалась')){
   var match=txt.match(/([0-9]+(?:[.,][0-9]+)?)×/);
   result.querySelector('.tcFactor').textContent='×'+(match?match[1]:'1.00');
   result.querySelector('.tcAmount').textContent='РАУНД ЗАВЕРШЁН';
