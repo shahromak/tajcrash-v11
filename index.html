@@ -179,11 +179,21 @@ function show(id){
  clearTimeout(hideTimer);
  hideTimer=setTimeout(function(){overlay.classList.remove('visible')},1000);
 }
+var pending=false;
 document.addEventListener('click',function(e){
  var b=e.target.closest('[data-open-game],#cardCrash,#cardWheel,#catWheel,#catCrash');
- if(!b)return;
+ if(!b||pending)return;
  var id=b.dataset.openGame||(b.id==='cardWheel'||b.id==='catWheel'?'penalty':'crash');
+ if(!gameNames[id])return;
+ e.preventDefault();
+ e.stopImmediatePropagation();
+ pending=true;
  show(id);
+ setTimeout(function(){
+   overlay.classList.remove('visible');
+   pending=false;
+   if(b.isConnected)b.click();
+ },1050);
 },true);
 })();
 </script></body></html>
