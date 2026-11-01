@@ -1,0 +1,21 @@
+# TajCrash DEMO backend — Render Blueprint
+# Deploy with Render > New > Blueprint, using this repository.
+# Bot token is entered only in Render's secret environment variable UI.
+services:
+  - type: web
+    name: tajcrash-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: ALLOWED_ORIGIN
+        value: https://shahromak.github.io
+      - key: PYTHON_VERSION
+        value: 3.12.8
