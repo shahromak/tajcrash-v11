@@ -498,4 +498,17 @@ load();setInterval(()=>{if(Date.now()-fetchedAt>15*60*1000)load()},15*60*1000);
 })();
 </script><script id="tc-currency-v52">
 (()=>{const play=document.getElementById('tcPlayCurrency'),game=document.getElementById('currency'),status=document.getElementById('tcPlayCurrencyStatus');if(!play||!game)return;play.value=game.value;function sync(){play.value=game.value;status.textContent='Текущая валюта игры: '+game.value}play.addEventListener('change',()=>{game.value=play.value;game.dispatchEvent(new Event('change',{bubbles:true}));sync();if(game.value!==play.value)status.textContent='Сначала заверши текущую игру'});game.addEventListener('change',sync);sync()})();
+</script><script id="tc-auth-v53">
+(function(){
+const tg=window.Telegram?.WebApp;
+const api=(window.TAJCRASH_API_URL||'').replace(/\/$/,'');
+const status=document.getElementById('telegramStatus');
+const profile=document.getElementById('profileStatus');
+if(!status)return;
+if(!tg?.initData){status.textContent='Демо-профиль на устройстве · открой игру из Telegram для входа';return}
+if(!api){status.textContent='Telegram Web App открыт · серверная авторизация ещё не подключена';return}
+if(!/^https:\/\//.test(api)){status.textContent='Ошибка конфигурации API: требуется HTTPS';return}
+status.textContent='Проверяем вход через Telegram…';
+fetch(api+'/auth/telegram',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({init_data:tg.initData}),cache:'no-store'}).then(async response=>{if(!response.ok)throw new Error('HTTP '+response.status);return response.json()}).then(data=>{if(!data.profile?.verified)throw new Error('not verified');status.textContent='✅ Telegram подтверждён сервером · '+data.profile.first_name;document.getElementById('demoId').textContent='TG-'+data.profile.telegram_id;if(profile)profile.textContent='Серверный DEMO-аккаунт создан. Игровые балансы пока локальные и не синхронизируются.';}).catch(()=>{status.textContent='⚠️ Не удалось проверить Telegram. Доступен локальный DEMO-режим.'});
+})();
 </script></body></html>
