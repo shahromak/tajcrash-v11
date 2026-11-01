@@ -3,7 +3,6 @@ import hashlib
 import hmac
 import json
 import os
-import secrets
 import sqlite3
 import time
 from contextlib import contextmanager
