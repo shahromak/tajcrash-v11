@@ -23,7 +23,15 @@ if not BOT_TOKEN or len(SESSION_SECRET) < 32:
     raise RuntimeError("Set TELEGRAM_BOT_TOKEN and a random SESSION_SECRET (32+ chars) on the server")
 
 app = FastAPI(title="TajCrash demo identity API", docs_url=None, redoc_url=None)
-app.add_middleware(CORSMiddleware, allow_origins=[ORIGIN], allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type"])
+# Allow the exact GitHub Pages host (including an optional configured origin).
+# Browser preflight can include additional request headers; do not reject them.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=list({ORIGIN.strip().rstrip("/"), "https://shahromak.github.io"}),
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+    max_age=600,
+)
 
 @contextmanager
 def db():
