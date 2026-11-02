@@ -108,7 +108,7 @@ def profile(uid):
         if not user:
             raise HTTPException(401, "Unknown user")
         wallets = dict(conn.execute("SELECT currency,cents FROM wallets WHERE telegram_id=?", (uid,)).fetchall())
-    confirmed = conn.execute("SELECT confirmed_at FROM telegram_confirmations WHERE telegram_id=?", (uid,)).fetchone()
+        confirmed = conn.execute("SELECT confirmed_at FROM telegram_confirmations WHERE telegram_id=?", (uid,)).fetchone()
     return {"telegram_code_confirmed": bool(confirmed), "telegram_id": user[0], "first_name": user[1], "username": user[2], "demo_balances": {k: wallets.get(k, 0) / 100 for k in ("TJS", "RUB", "KZT", "USD")}, "verified": True, "wallet_mode": "server_demo_read_only"}
 
 @app.get("/health")
