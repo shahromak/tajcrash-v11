@@ -307,7 +307,7 @@ async def telegram_bot_webhook(request: Request):
     payload = json.dumps({
         "chat_id": chat_id,
         "text": "🚀 Добро пожаловать в TajCrash Game!\n🎮 Открой DEMO-игру кнопкой ниже. Без реальных денег.",
-        "reply_markup": {"inline_keyboard": [[{"text": "🎮 Играть в TajCrash", "web_app": {"url": "https://shahromak.github.io/tajcrash-v11/"}}]]}
+        "reply_markup": {"inline_keyboard": [[{"text": "🎮 Играть в TajCrash", "web_app": {"url": "https://shahromak.github.io/tajcrash-v11/?v=62"}}]]}
     }).encode()
     req = urllib.request.Request("https://api.telegram.org/bot" + BOT_TOKEN + "/sendMessage",
         data=payload, headers={"Content-Type": "application/json"}, method="POST")
