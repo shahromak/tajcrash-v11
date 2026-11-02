@@ -106,6 +106,25 @@ def demo_bet(body: DemoBet, authorization: Annotated[str | None, Header()] = Non
             (uid, body.currency, -body.amount_cents, balance, body.operation_id, int(time.time())))
     return {"status": "accepted", "currency": body.currency, "balance_cents": balance}
 
+@app.get("/demo/ledger")
+def demo_ledger(authorization: Annotated[str | None, Header()] = None, limit: int = 20):
+    """Authenticated, read-only transaction history for the current DEMO user."""
+    uid = session_uid(authorization)
+    if not 1 <= limit <= 100:
+        raise HTTPException(400, "Limit must be between 1 and 100")
+    with db() as conn:
+        rows = conn.execute(
+            """SELECT currency,delta_cents,balance_after_cents,operation_id,created_at
+               FROM demo_ledger WHERE telegram_id=? ORDER BY id DESC LIMIT ?""",
+            (uid, limit),
+        ).fetchall()
+    return {"mode": "server_demo", "entries": [
+        {"currency": currency, "delta_cents": delta,
+         "balance_after_cents": balance, "operation_id": op, "created_at": created}
+        for currency, delta, balance, op, created in rows
+    ]}
+
+
 class VerifyCode(BaseModel):
     code: str
 
