@@ -1,0 +1,17 @@
+name: TajCrash Demo Checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+      - name: Run Telegram auth and demo wallet tests
+        run: python -m unittest discover -s backend/tests -v
