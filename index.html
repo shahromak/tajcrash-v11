@@ -574,6 +574,30 @@ try{
  const note=document.createElement('small');note.textContent='Игровые балансы и ставки пока локальные и не синхронизированы с сервером.';
  panel.append(title,balances,note);
  if(profileStatus){document.getElementById('tcServerWalletInfo')?.remove();profileStatus.insertAdjacentElement('afterend',panel);profileStatus.textContent='Telegram-профиль подтверждён сервером.'}
+ 
+ const verifyBox=document.createElement('section');
+ verifyBox.id='tcTelegramCodeBox';
+ verifyBox.className='card';
+ verifyBox.style.marginTop='14px';
+ const h=document.createElement('h3');h.textContent='🔐 Подтверждение через Telegram';
+ const info=document.createElement('p');info.textContent=me.telegram_code_confirmed?'✅ Аккаунт подтверждён кодом Telegram':'Получи 6-значный код в личном сообщении от @TajCrashGameBot.';
+ verifyBox.append(h,info);
+ if(!me.telegram_code_confirmed){
+   const send=document.createElement('button');send.type='button';send.textContent='📩 Получить код в Telegram';send.className='primary';
+   const input=document.createElement('input');input.type='text';input.inputMode='numeric';input.autocomplete='one-time-code';input.maxLength=6;input.placeholder='6 цифр';input.setAttribute('aria-label','Код Telegram');
+   const confirm=document.createElement('button');confirm.type='button';confirm.textContent='Подтвердить код';confirm.className='primary';
+   const message=document.createElement('p');message.setAttribute('aria-live','polite');
+   const request=async(path,body)=>{
+     const res=await fetch(api+path,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+login.access_token},body:JSON.stringify(body),cache:'no-store'});
+     const data=await res.json();if(!res.ok)throw Error(data.detail||'Ошибка сервера');return data;
+   };
+   send.onclick=async()=>{send.disabled=true;message.textContent='Отправляем…';try{const result=await request('/auth/telegram/code/send',{});message.textContent=result.status==='already_confirmed'?'Аккаунт уже подтверждён':'Код отправлен в личные сообщения Telegram. Действует 5 минут.';}catch(e){message.textContent=e.message;}finally{setTimeout(()=>{send.disabled=false},60000)}};
+   confirm.onclick=async()=>{if(!/^[0-9]{6}$/.test(input.value.trim())){message.textContent='Введи ровно 6 цифр';return}confirm.disabled=true;try{const result=await request('/auth/telegram/code/verify',{code:input.value.trim()});if(result.status==='confirmed'){info.textContent='✅ Аккаунт подтверждён кодом Telegram';send.remove();input.remove();confirm.remove();message.textContent='Подтверждение сохранено на сервере.';}else if(result.status==='expired'){message.textContent='Код истёк. Запроси новый.';}else{message.textContent='Неверный код. Осталось попыток: '+result.attempts_left;}}catch(e){message.textContent=e.message;}finally{confirm.disabled=false}};
+   verifyBox.append(send,input,confirm,message);
+ }
+ const profilePage=document.getElementById('profile');
+ if(profilePage){document.getElementById('tcTelegramCodeBox')?.remove();profilePage.append(verifyBox);}
+
  document.body.classList.remove('tc-locked');
 }catch(e){fail('Не удалось подтвердить Telegram-вход. Открой игру заново через бота или нажми «Повторить проверку».');}
 })();
