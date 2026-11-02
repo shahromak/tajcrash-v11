@@ -103,7 +103,7 @@ def demo_bet(body: DemoBet, authorization: Annotated[str | None, Header()] = Non
             raise HTTPException(409, "Insufficient DEMO balance")
         balance = conn.execute("SELECT cents FROM wallets WHERE telegram_id=? AND currency=?", (uid, body.currency)).fetchone()[0]
         conn.execute("INSERT INTO demo_ledger(telegram_id,currency,delta_cents,balance_after_cents,operation_id,created_at) VALUES(?,?,?,?,?,?)",
-            (uid, body.currency, -body.amount_cents, balance, int(time.time())))
+            (uid, body.currency, -body.amount_cents, balance, body.operation_id, int(time.time())))
     return {"status": "accepted", "currency": body.currency, "balance_cents": balance}
 
 class VerifyCode(BaseModel):
