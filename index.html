@@ -549,7 +549,11 @@ if(!tg?.initData){fail('Для входа запусти игру через к�
 if(!/^https:\/\//.test(api)){fail('Сервер авторизации не настроен.');return}
 try{
  tg.ready();tg.expand();
- const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),20000);
+ // Render Free can take over 50 seconds to wake up after inactivity.
+ // Keep the gate locked until the server verifies the Telegram identity.
+ const controller=new AbortController();
+ const timer=setTimeout(()=>controller.abort(),75000);
+ const slowNotice=setTimeout(()=>{if(message)message.textContent='Сервер просыпается после простоя. Это может занять до минуты — подожди, пожалуйста…';},7000);
  let login,me;
  try{
  const response=await fetch(api+'/auth/telegram',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({init_data:tg.initData}),cache:'no-store',signal:controller.signal});
@@ -560,7 +564,7 @@ try{
  if(!meResponse.ok)throw new Error('Telegram session HTTP '+meResponse.status);
  me=await meResponse.json();
  if(!me.verified||me.telegram_id!==login.profile.telegram_id||me.telegram_id!==tg.initDataUnsafe?.user?.id)throw new Error('Identity mismatch');
- }finally{clearTimeout(timer)}
+ }finally{clearTimeout(timer);clearTimeout(slowNotice)}
  window.tcVerifiedTelegramProfile={id:me.telegram_id,first_name:me.first_name,username:me.username||''};
  window.tcApiSession={api,accessToken:login.access_token};
  if(status)status.textContent='✅ Telegram подтверждён сервером · '+me.first_name;
@@ -599,7 +603,7 @@ try{
  if(profilePage){document.getElementById('tcTelegramCodeBox')?.remove();profilePage.append(verifyBox);}
 
  document.body.classList.remove('tc-locked');
-}catch(e){fail('Не удалось подтвердить Telegram-вход. Открой игру заново через бота или нажми «Повторить проверку».');}
+}catch(e){fail(e?.name==='AbortError'?'Сервер не ответил за 75 секунд. Попробуй ещё раз.':'Не удалось подтвердить Telegram-вход. Открой игру заново через бота или нажми «Повторить проверку».');}
 })();
 </script><div id="tcBalancePicker" role="dialog" aria-modal="true" aria-label="Выбор валюты"><div class="tcPickerBox"><h3>💱 Валюта баланса и игр</h3><p class="hint">Выбери, в какой валюте показывать баланс и играть. Для обмена средств открой Кошелёк.</p><div id="tcBalanceOptions"></div><button id="tcBalanceClose" type="button">Закрыть</button></div></div><script id="tc-header-balance-v57-script">
 (()=>{const btn=document.getElementById('balanceButton'),modal=document.getElementById('tcBalancePicker'),options=document.getElementById('tcBalanceOptions'),game=document.getElementById('currency');if(!btn||!modal||!game)return;const names={TJS:'🇹🇯 Сомони',KZT:'🇰🇿 Тенге',RUB:'🇷🇺 Рубль',USD:'🇺🇸 Доллар'};function open(){const balances=window.tcWalletBridge?.get()||{};options.replaceChildren();Object.entries(names).forEach(([code,name])=>{const b=document.createElement('button');b.type='button';b.className=game.value===code?'selected':'';b.textContent=name+' · '+(Number(balances[code])||0).toFixed(2)+' '+code;b.addEventListener('click',()=>{game.value=code;game.dispatchEvent(new Event('change',{bubbles:true}));if(game.value===code){modal.classList.remove('open')}else{open();const p=modal.querySelector('p');p.textContent='⚠️ Заверши текущую игру, чтобы сменить валюту.'}});options.appendChild(b)});modal.classList.add('open')}btn.addEventListener('click',open);document.getElementById('tcBalanceClose').addEventListener('click',()=>modal.classList.remove('open'));modal.addEventListener('click',e=>{if(e.target===modal)modal.classList.remove('open')});document.addEventListener('keydown',e=>{if(e.key==='Escape')modal.classList.remove('open')})})();
