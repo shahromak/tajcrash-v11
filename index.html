@@ -538,7 +538,8 @@ load();setInterval(()=>{if(Date.now()-fetchedAt>15*60*1000)load()},15*60*1000);
 })();
 </script><script id="tc-currency-v52">
 (()=>{const play=document.getElementById('tcPlayCurrency'),game=document.getElementById('currency'),status=document.getElementById('tcPlayCurrencyStatus');if(!play||!game)return;play.value=game.value;function sync(){play.value=game.value;status.textContent='Текущая валюта игры: '+game.value}play.addEventListener('change',()=>{game.value=play.value;game.dispatchEvent(new Event('change',{bubbles:true}));sync();if(game.value!==play.value)status.textContent='Сначала заверши текущую игру'});game.addEventListener('change',sync);sync()})();
-</script><script id="tc-auth-v53">
+</script><script>window.TAJCRASH_API_URL="https://tajcrash-api.onrender.com";</script>
+<script id="tc-auth-v53">
 (function(){
 const tg=window.Telegram?.WebApp;
 const api=(window.TAJCRASH_API_URL||'').replace(/\/$/,'');
