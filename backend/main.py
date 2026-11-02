@@ -11,7 +11,7 @@ import time
 from contextlib import contextmanager
 from typing import Annotated
 
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -188,3 +188,33 @@ def verify_telegram_code(body: VerifyCode, authorization: Annotated[str | None, 
         conn.execute("""INSERT INTO telegram_confirmations(telegram_id,confirmed_at) VALUES(?,?)
             ON CONFLICT(telegram_id) DO UPDATE SET confirmed_at=excluded.confirmed_at""", (uid, now))
     return {"status": "confirmed"}
+
+
+@app.post("/telegram/webhook")
+async def telegram_bot_webhook(request: Request):
+    # Telegram webhook requests are authenticated by a separately configured secret.
+    expected = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
+    supplied = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
+    if not expected or not hmac.compare_digest(supplied, expected):
+        raise HTTPException(403, "Forbidden")
+    update = await request.json()
+    message = update.get("message") or {}
+    chat = message.get("chat") or {}
+    if chat.get("type") != "private" or not str(message.get("text", "")).startswith("/start"):
+        return {"ok": True}
+    chat_id = chat.get("id")
+    if not isinstance(chat_id, int):
+        return {"ok": True}
+    payload = json.dumps({
+        "chat_id": chat_id,
+        "text": "🚀 Добро пожаловать в TajCrash Game!\n🎮 Открой DEMO-игру кнопкой ниже. Без реальных денег.",
+        "reply_markup": {"inline_keyboard": [[{"text": "🎮 Играть в TajCrash", "web_app": {"url": "https://shahromak.github.io/tajcrash-v11/"}}]]}
+    }).encode()
+    req = urllib.request.Request("https://api.telegram.org/bot" + BOT_TOKEN + "/sendMessage",
+        data=payload, headers={"Content-Type": "application/json"}, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=8) as response:
+            json.load(response)
+    except (urllib.error.URLError, TimeoutError, OSError):
+        raise HTTPException(502, "Telegram send failed")
+    return {"ok": True}
