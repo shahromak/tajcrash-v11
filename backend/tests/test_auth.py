@@ -63,6 +63,27 @@ class AuthTests(unittest.TestCase):
         self.assertEqual(ctx.exception.status_code, 409)
         self.assertEqual(self.app.demo_wallet(auth)["balances"]["TJS"], 975)
 
+    def test_demo_ledger_is_private_and_read_only(self):
+        owner = self.app.telegram_login(self.app.Login(init_data=self.telegram_data(uid=60001)))
+        other = self.app.telegram_login(self.app.Login(init_data=self.telegram_data(uid=60002)))
+        owner_auth = "Bearer " + owner["access_token"]
+        other_auth = "Bearer " + other["access_token"]
+        self.app.demo_bet(self.app.DemoBet(
+            currency="TJS", amount_cents=125, operation_id="private-ledger-0001"), owner_auth)
+        owner_entries = self.app.demo_ledger(owner_auth)["entries"]
+        self.assertEqual(len(owner_entries), 1)
+        self.assertEqual(owner_entries[0]["delta_cents"], -125)
+        self.assertEqual(owner_entries[0]["balance_after_cents"], 99875)
+        self.assertEqual(self.app.demo_ledger(other_auth)["entries"], [])
+        self.assertEqual(len(self.app.demo_ledger(owner_auth, limit=1)["entries"]), 1)
+        with self.assertRaises(HTTPException) as ctx:
+            self.app.demo_ledger("Bearer invalid")
+        self.assertEqual(ctx.exception.status_code, 401)
+        for invalid in (0, 101, -1):
+            with self.assertRaises(HTTPException) as ctx:
+                self.app.demo_ledger(owner_auth, limit=invalid)
+            self.assertEqual(ctx.exception.status_code, 400)
+
     def test_demo_bet_rejects_invalid_inputs(self):
         login = self.app.telegram_login(self.app.Login(init_data=self.telegram_data(uid=54322)))
         auth = "Bearer " + login["access_token"]
