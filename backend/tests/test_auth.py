@@ -38,7 +38,7 @@ class AuthTests(unittest.TestCase):
             "query_id": "AA-test",
             "user": json.dumps({"id": uid, "first_name": "Demo", "username": "demo_user"}, separators=(",", ":")),
         }
-        check = "\\n".join(f"{k}={v}" for k, v in sorted(data.items()))
+        check = "\n".join(f"{k}={v}" for k, v in sorted(data.items()))
         key = hmac.new(b"WebAppData", os.environ["TELEGRAM_BOT_TOKEN"].encode(), hashlib.sha256).digest()
         data["hash"] = hmac.new(key, check.encode(), hashlib.sha256).hexdigest()
         if tamper:
