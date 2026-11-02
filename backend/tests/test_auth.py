@@ -45,6 +45,33 @@ class AuthTests(unittest.TestCase):
             data["user"] = data["user"].replace("Demo", "Attacker")
         return urlencode(data)
 
+    def test_demo_bet_atomic_and_idempotent(self):
+        login = self.app.telegram_login(self.app.Login(init_data=self.telegram_data(uid=54321)))
+        auth = "Bearer " + login["access_token"]
+        self.assertEqual(self.app.demo_wallet(auth)["balances"]["TJS"], 1000)
+        bet = self.app.DemoBet(currency="TJS", amount_cents=2500, operation_id="bet-test-unique-01")
+        first = self.app.demo_bet(bet, auth)
+        self.assertEqual(first["balance_cents"], 97500)
+        second = self.app.demo_bet(bet, auth)
+        self.assertEqual(second["status"], "already_processed")
+        self.assertEqual(self.app.demo_wallet(auth)["balances"]["TJS"], 975)
+        with self.assertRaises(HTTPException) as ctx:
+            self.app.demo_bet(self.app.DemoBet(currency="TJS", amount_cents=500, operation_id="bet-test-unique-01"), auth)
+        self.assertEqual(ctx.exception.status_code, 409)
+        with self.assertRaises(HTTPException) as ctx:
+            self.app.demo_bet(self.app.DemoBet(currency="TJS", amount_cents=100000, operation_id="bet-test-unique-02"), auth)
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(self.app.demo_wallet(auth)["balances"]["TJS"], 975)
+
+    def test_demo_bet_rejects_invalid_inputs(self):
+        login = self.app.telegram_login(self.app.Login(init_data=self.telegram_data(uid=54322)))
+        auth = "Bearer " + login["access_token"]
+        for currency, amount, op in [("BTC", 100, "test-op-001"), ("TJS", 0, "test-op-002"), ("TJS", -1, "test-op-003"), ("TJS", 100, "bad")]:
+            with self.subTest(currency=currency, amount=amount, op=op), self.assertRaises(HTTPException):
+                self.app.demo_bet(self.app.DemoBet(currency=currency, amount_cents=amount, operation_id=op), auth)
+        with self.assertRaises(HTTPException):
+            self.app.demo_wallet("Bearer invalid")
+
     def test_health(self):
         self.assertEqual(self.app.health(), {"status": "ok"})
 
