@@ -607,4 +607,43 @@ try{
 })();
 </script><div id="tcBalancePicker" role="dialog" aria-modal="true" aria-label="Выбор валюты"><div class="tcPickerBox"><h3>💱 Валюта баланса и игр</h3><p class="hint">Выбери, в какой валюте показывать баланс и играть. Для обмена средств открой Кошелёк.</p><div id="tcBalanceOptions"></div><button id="tcBalanceClose" type="button">Закрыть</button></div></div><script id="tc-header-balance-v57-script">
 (()=>{const btn=document.getElementById('balanceButton'),modal=document.getElementById('tcBalancePicker'),options=document.getElementById('tcBalanceOptions'),game=document.getElementById('currency');if(!btn||!modal||!game)return;const names={TJS:'🇹🇯 Сомони',KZT:'🇰🇿 Тенге',RUB:'🇷🇺 Рубль',USD:'🇺🇸 Доллар'};function open(){const balances=window.tcWalletBridge?.get()||{};options.replaceChildren();Object.entries(names).forEach(([code,name])=>{const b=document.createElement('button');b.type='button';b.className=game.value===code?'selected':'';b.textContent=name+' · '+(Number(balances[code])||0).toFixed(2)+' '+code;b.addEventListener('click',()=>{game.value=code;game.dispatchEvent(new Event('change',{bubbles:true}));if(game.value===code){modal.classList.remove('open')}else{open();const p=modal.querySelector('p');p.textContent='⚠️ Заверши текущую игру, чтобы сменить валюту.'}});options.appendChild(b)});modal.classList.add('open')}btn.addEventListener('click',open);document.getElementById('tcBalanceClose').addEventListener('click',()=>modal.classList.remove('open'));modal.addEventListener('click',e=>{if(e.target===modal)modal.classList.remove('open')});document.addEventListener('keydown',e=>{if(e.key==='Escape')modal.classList.remove('open')})})();
+</script>
+<style id="tc-micro-loading-style">
+:root{--tc-loader:#45e9be}
+#tcTapProgress{position:fixed;top:0;left:0;width:0;height:3px;z-index:2147483646;pointer-events:none;opacity:0;background:linear-gradient(90deg,#29d8cc,#66f7ae,#5cb5ff);box-shadow:0 0 15px #45e9be88;transition:width .38s ease,opacity .25s ease}
+#tcTapProgress.tc-progress-active{width:75%;opacity:1}
+#tcTapProgress.tc-progress-finish{width:100%;opacity:0;transition:width .22s ease,opacity .4s ease .15s}
+.tc-tap-loading{position:relative!important}
+.tc-tap-loading::after{content:"";display:inline-block;width:13px;height:13px;margin-left:8px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;vertical-align:-2px;animation:tcMicroSpin .65s linear infinite;opacity:.85}
+@keyframes tcMicroSpin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){#tcTapProgress{transition:none}.tc-tap-loading::after{animation:none;border-right-color:currentColor;opacity:.45}}
+</style>
+<script id="tc-micro-loading-v1">
+(()=>{
+'use strict';
+const progress=document.createElement('div');
+progress.id='tcTapProgress';
+progress.setAttribute('aria-hidden','true');
+document.body.appendChild(progress);
+let progressTimer;
+document.addEventListener('click',event=>{
+  if(document.body.classList.contains('tc-locked'))return;
+  const el=event.target.closest('button,[role="button"],.nav-item,.tab');
+  if(!el||el.disabled||el.getAttribute('aria-disabled')==='true'||el.closest('#tcAuthGate'))return;
+  // Feedback only: never delay game actions or alter existing click handlers.
+  el.classList.remove('tc-tap-loading');
+  void el.offsetWidth;
+  el.classList.add('tc-tap-loading');
+  clearTimeout(el._tcMicroTimer);
+  el._tcMicroTimer=setTimeout(()=>el.classList.remove('tc-tap-loading'),520);
+  clearTimeout(progressTimer);
+  progress.className='';
+  void progress.offsetWidth;
+  progress.className='tc-progress-active';
+  progressTimer=setTimeout(()=>{
+    progress.className='tc-progress-finish';
+    setTimeout(()=>{if(progress.className==='tc-progress-finish'){progress.className='';progress.style.width='0'}},650);
+  },330);
+},true);
+})();
 </script></body></html>
