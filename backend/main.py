@@ -3,6 +3,9 @@ import hashlib
 import hmac
 import json
 import os
+import secrets
+import urllib.request
+import urllib.error
 import sqlite3
 import time
 from contextlib import contextmanager
@@ -41,6 +44,17 @@ with db() as conn:
          cents INTEGER NOT NULL DEFAULT 0 CHECK(cents >= 0),
          PRIMARY KEY(telegram_id, currency),
          FOREIGN KEY(telegram_id) REFERENCES users(telegram_id))""")
+
+with db() as conn:
+    conn.execute("""CREATE TABLE IF NOT EXISTS telegram_codes (
+        telegram_id INTEGER PRIMARY KEY, code_hash TEXT NOT NULL,
+        expires_at INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0,
+        sent_at INTEGER NOT NULL)""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS telegram_confirmations (
+        telegram_id INTEGER PRIMARY KEY, confirmed_at INTEGER NOT NULL)""")
+
+class VerifyCode(BaseModel):
+    code: str
 
 class Login(BaseModel):
     init_data: str
@@ -94,7 +108,8 @@ def profile(uid):
         if not user:
             raise HTTPException(401, "Unknown user")
         wallets = dict(conn.execute("SELECT currency,cents FROM wallets WHERE telegram_id=?", (uid,)).fetchall())
-    return {"telegram_id": user[0], "first_name": user[1], "username": user[2], "demo_balances": {k: wallets.get(k, 0) / 100 for k in ("TJS", "RUB", "KZT", "USD")}, "verified": True, "wallet_mode": "server_demo_read_only"}
+    confirmed = conn.execute("SELECT confirmed_at FROM telegram_confirmations WHERE telegram_id=?", (uid,)).fetchone()
+    return {"telegram_code_confirmed": bool(confirmed), "telegram_id": user[0], "first_name": user[1], "username": user[2], "demo_balances": {k: wallets.get(k, 0) / 100 for k in ("TJS", "RUB", "KZT", "USD")}, "verified": True, "wallet_mode": "server_demo_read_only"}
 
 @app.get("/health")
 def health():
@@ -114,3 +129,62 @@ def telegram_login(body: Login):
 @app.get("/me")
 def me(authorization: Annotated[str | None, Header()] = None):
     return profile(session_uid(authorization))
+
+def code_digest(uid: int, code: str) -> str:
+    return hmac.new(SESSION_SECRET.encode(), f"{uid}:{code}".encode(), hashlib.sha256).hexdigest()
+
+@app.post("/auth/telegram/code/send")
+def send_telegram_code(authorization: Annotated[str | None, Header()] = None):
+    uid = session_uid(authorization)
+    now = int(time.time())
+    with db() as conn:
+        existing = conn.execute("SELECT sent_at FROM telegram_codes WHERE telegram_id=?", (uid,)).fetchone()
+        if existing and now - existing[0] < 60:
+            raise HTTPException(429, "Подожди минуту перед новым кодом")
+        confirmed = conn.execute("SELECT 1 FROM telegram_confirmations WHERE telegram_id=?", (uid,)).fetchone()
+        if confirmed:
+            return {"status": "already_confirmed"}
+    code = f"{secrets.randbelow(1000000):06d}"
+    payload = json.dumps({
+        "chat_id": uid,
+        "text": "🔐 Код подтверждения TajCrash: " + code + "\nДействует 5 минут. Никому не сообщай код."
+    }).encode()
+    req = urllib.request.Request(
+        "https://api.telegram.org/bot" + BOT_TOKEN + "/sendMessage",
+        data=payload, headers={"Content-Type": "application/json"}, method="POST"
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=8) as response:
+            result = json.load(response)
+        if not result.get("ok"):
+            raise ValueError("Telegram rejected message")
+    except (urllib.error.URLError, TimeoutError, ValueError, OSError):
+        raise HTTPException(502, "Не удалось отправить сообщение. Нажми Start в боте и попробуй снова.")
+    with db() as conn:
+        conn.execute("""INSERT INTO telegram_codes(telegram_id,code_hash,expires_at,attempts,sent_at)
+            VALUES(?,?,?,?,?) ON CONFLICT(telegram_id) DO UPDATE SET
+            code_hash=excluded.code_hash,expires_at=excluded.expires_at,
+            attempts=0,sent_at=excluded.sent_at""",
+            (uid, code_digest(uid, code), now + 300, 0, now))
+    return {"status": "sent", "expires_in": 300}
+
+@app.post("/auth/telegram/code/verify")
+def verify_telegram_code(body: VerifyCode, authorization: Annotated[str | None, Header()] = None):
+    uid = session_uid(authorization)
+    if len(body.code) != 6 or not body.code.isascii() or not body.code.isdecimal():
+        raise HTTPException(400, "Введи 6 цифр")
+    now = int(time.time())
+    with db() as conn:
+        row = conn.execute("SELECT code_hash,expires_at,attempts FROM telegram_codes WHERE telegram_id=?", (uid,)).fetchone()
+        if not row:
+            raise HTTPException(400, "Сначала запроси код")
+        if row[1] < now or row[2] >= 5:
+            conn.execute("DELETE FROM telegram_codes WHERE telegram_id=?", (uid,))
+            return {"status": "expired"}
+        conn.execute("UPDATE telegram_codes SET attempts=attempts+1 WHERE telegram_id=?", (uid,))
+        if not hmac.compare_digest(row[0], code_digest(uid, body.code)):
+            return {"status": "invalid", "attempts_left": 4 - row[2]}
+        conn.execute("DELETE FROM telegram_codes WHERE telegram_id=?", (uid,))
+        conn.execute("""INSERT INTO telegram_confirmations(telegram_id,confirmed_at) VALUES(?,?)
+            ON CONFLICT(telegram_id) DO UPDATE SET confirmed_at=excluded.confirmed_at""", (uid, now))
+    return {"status": "confirmed"}
