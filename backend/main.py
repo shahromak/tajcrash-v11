@@ -61,6 +61,51 @@ with db() as conn:
     conn.execute("""CREATE TABLE IF NOT EXISTS telegram_confirmations (
         telegram_id INTEGER PRIMARY KEY, confirmed_at INTEGER NOT NULL)""")
 
+# Server-authoritative DEMO ledger. No client-supplied payouts or real money.
+with db() as conn:
+    conn.execute("""CREATE TABLE IF NOT EXISTS demo_ledger (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        telegram_id INTEGER NOT NULL, currency TEXT NOT NULL,
+        delta_cents INTEGER NOT NULL, balance_after_cents INTEGER NOT NULL,
+        operation_id TEXT NOT NULL, created_at INTEGER NOT NULL,
+        UNIQUE(telegram_id, operation_id))""")
+
+class DemoBet(BaseModel):
+    currency: str
+    amount_cents: int
+    operation_id: str
+
+@app.get("/demo/wallet")
+def demo_wallet(authorization: Annotated[str | None, Header()] = None):
+    uid = session_uid(authorization)
+    return {"balances": profile(uid)["demo_balances"], "mode": "server_demo"}
+
+@app.post("/demo/bet")
+def demo_bet(body: DemoBet, authorization: Annotated[str | None, Header()] = None):
+    """Debit a DEMO bet once; games must NOT award payouts until server rules exist."""
+    uid = session_uid(authorization)
+    if body.currency not in ("TJS", "RUB", "KZT", "USD"):
+        raise HTTPException(400, "Unsupported currency")
+    if not isinstance(body.amount_cents, int) or isinstance(body.amount_cents, bool) or not 1 <= body.amount_cents <= 100000:
+        raise HTTPException(400, "Invalid demo bet amount")
+    if not 8 <= len(body.operation_id) <= 100 or not all(ch.isascii() and (ch.isalnum() or ch in "-_") for ch in body.operation_id):
+        raise HTTPException(400, "Invalid operation ID")
+    with db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        existing = conn.execute("SELECT currency,delta_cents,balance_after_cents FROM demo_ledger WHERE telegram_id=? AND operation_id=?", (uid, body.operation_id)).fetchone()
+        if existing:
+            if existing[0] != body.currency or existing[1] != -body.amount_cents:
+                raise HTTPException(409, "Operation ID already used for another bet")
+            return {"status": "already_processed", "balance_cents": existing[2], "currency": existing[0]}
+        updated = conn.execute("UPDATE wallets SET cents=cents-? WHERE telegram_id=? AND currency=? AND cents>=?",
+            (body.amount_cents, uid, body.currency, body.amount_cents))
+        if updated.rowcount != 1:
+            raise HTTPException(409, "Insufficient DEMO balance")
+        balance = conn.execute("SELECT cents FROM wallets WHERE telegram_id=? AND currency=?", (uid, body.currency)).fetchone()[0]
+        conn.execute("INSERT INTO demo_ledger(telegram_id,currency,delta_cents,balance_after_cents,operation_id,created_at) VALUES(?,?,?,?,?,?)",
+            (uid, body.currency, -body.amount_cents, balance, int(time.time())))
+    return {"status": "accepted", "currency": body.currency, "balance_cents": balance}
+
 class VerifyCode(BaseModel):
     code: str
 
