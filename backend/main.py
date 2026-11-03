@@ -444,6 +444,11 @@ async def telegram_bot_webhook(request: Request):
             "Нажми кнопку ниже, чтобы открыть приложение.\n"
             "ℹ️ Только виртуальные игровые балансы. Реальных ставок и вывода денег нет.",
             launch)
+    elif command == "/admin":
+        if chat_id not in ADMIN_IDS:
+            telegram_send(chat_id, "🔒 Админ-панель доступна только назначенным администраторам.")
+        else:
+            telegram_send(chat_id, "🔐 TajCrash Admin\\nВход по Telegram ID с обязательным подтверждением.", [[{"text":"🛡 Открыть админ-панель","web_app":{"url":"https://shahromak.github.io/tajcrash-v11/admin.html"}}]])
     elif command in ("/help", "/support"):
         telegram_send(chat_id,
             "🛟 Помощь TajCrash\n\n"
