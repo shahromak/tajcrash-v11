@@ -835,4 +835,23 @@ const pro=document.querySelector('.tcProBalance button');if(pro){const b=documen
 #profile .tcProAvatar{box-shadow:0 0 0 3px #16ff9a22,0 0 22px #1bff9a70!important}
 #profile .tcProBalance button{box-shadow:0 0 14px #11f1a92a!important}
 @media(max-width:370px){#profile .tcProMenu button{gap:8px!important}#profile .tcProMenu button .tcMenuIcon{width:39px!important;min-width:39px!important;max-width:39px!important;flex-basis:39px!important;height:39px!important}#profile .tcProMenu .tcMenuText strong{font-size:13px!important}}
-</style></body></html>
+</style><style id="tc-back-nav-v77">
+#tcBackBar[hidden]{display:none!important}#tcBackBar{position:sticky;top:0;z-index:75;display:flex;align-items:center;gap:12px;padding:9px 15px;background:linear-gradient(90deg,#092a29,#10213a);border-bottom:1px solid #1e786a;box-shadow:0 5px 16px #0005}
+#tcBackBtn{display:flex;align-items:center;gap:8px;border:1px solid #2d9f85;border-radius:13px;background:#0b4038;color:#75ffcc;padding:10px 14px;font-weight:800;font-size:14px}
+#tcBackTitle{font-size:13px;color:#c3dce2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+</style>
+<script id="tc-back-nav-v77-script">(()=>{
+'use strict';
+const pages=[...document.querySelectorAll('section.page')],names={home:'Главная',penalty:'Игры',wallet:'Кошелёк',history:'История',profile:'Профиль',settings:'Настройки',support:'Поддержка'};
+const bar=document.createElement('div');bar.id='tcBackBar';bar.hidden=true;
+bar.innerHTML='<button id="tcBackBtn" type="button" aria-label="Вернуться на предыдущую страницу">← Назад</button><span id="tcBackTitle"></span>';
+const header=document.querySelector('header');if(header)header.insertAdjacentElement('afterend',bar);else document.body.prepend(bar);
+let previous=null,current=pages.find(p=>p.classList.contains('active'))?.id||'home',internal=false;
+function active(){return pages.find(p=>p.classList.contains('active'))?.id||current}
+function update(){const now=active();if(now!==current){if(!internal)previous=current;current=now}bar.hidden=!previous||current===previous;document.getElementById('tcBackTitle').textContent=names[current]||'Раздел'}
+function back(){const target=previous||'profile';if(!document.getElementById(target))return;internal=true;const btn=document.querySelector('.bottomNav [data-page="'+target+'"]');if(btn)btn.click();else{pages.forEach(p=>p.classList.toggle('active',p.id===target));document.querySelectorAll('.bottomNav [data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===target))}current=target;previous=null;internal=false;window.scrollTo({top:0,behavior:'smooth'});update()}
+document.getElementById('tcBackBtn').addEventListener('click',back);
+document.addEventListener('click',e=>{if(e.target.closest('#tcBackBtn'))return;const el=e.target.closest('[data-page],[data-tc-pro-page],[data-tc-pro-scroll]');if(!el)return;const from=active();setTimeout(()=>{const to=active();if(from!==to){previous=from;current=to;window.scrollTo({top:0,behavior:'instant'})}update()},0)},true);
+const obs=new MutationObserver(update);pages.forEach(p=>obs.observe(p,{attributes:true,attributeFilter:['class']}));
+update();
+})();</script></body></html>
