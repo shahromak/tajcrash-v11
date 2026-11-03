@@ -618,7 +618,7 @@ def support_send(body: SupportMessage, authorization: Annotated[str | None, Head
             conn.execute("INSERT INTO support_auto_reply_log(telegram_id,last_sent) VALUES(?,?) "
                          "ON CONFLICT(telegram_id) DO UPDATE SET last_sent=excluded.last_sent", (uid,now))
             conn.execute("INSERT INTO support_messages(telegram_id,sender_id,is_admin,message,created_at) VALUES(?,?,?,?,?)",
-                         (uid,0,1,SUPPORT_AUTO_REPLY.replace("\\\\n","\\n"),now))
+                         (uid,0,1,SUPPORT_AUTO_REPLY,now))
     return {"status":"sent"}
 
 @app.get("/support/messages")
