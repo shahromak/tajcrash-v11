@@ -289,9 +289,28 @@ def verify_telegram_code(body: VerifyCode, authorization: Annotated[str | None, 
     return {"status": "confirmed"}
 
 
+BOT_WEBAPP_URL = "https://shahromak.github.io/tajcrash-v11/?v=66"
+
+def telegram_send(chat_id: int, text: str, keyboard=None):
+    payload = {"chat_id": chat_id, "text": text, "disable_web_page_preview": True}
+    if keyboard is not None:
+        payload["reply_markup"] = {"inline_keyboard": keyboard}
+    req = urllib.request.Request(
+        "https://api.telegram.org/bot" + BOT_TOKEN + "/sendMessage",
+        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        headers={"Content-Type": "application/json"}, method="POST"
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=8) as response:
+            result = json.load(response)
+        if not result.get("ok"):
+            raise ValueError("Telegram rejected message")
+    except (urllib.error.URLError, TimeoutError, ValueError, OSError):
+        raise HTTPException(502, "Telegram send failed")
+
+
 @app.post("/telegram/webhook")
 async def telegram_bot_webhook(request: Request):
-    # Telegram webhook requests are authenticated by a separately configured secret.
     expected = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
     supplied = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
     if not expected or not hmac.compare_digest(supplied, expected):
@@ -299,21 +318,50 @@ async def telegram_bot_webhook(request: Request):
     update = await request.json()
     message = update.get("message") or {}
     chat = message.get("chat") or {}
-    if chat.get("type") != "private" or not str(message.get("text", "")).startswith("/start"):
+    if chat.get("type") != "private":
         return {"ok": True}
     chat_id = chat.get("id")
     if not isinstance(chat_id, int):
         return {"ok": True}
-    payload = json.dumps({
-        "chat_id": chat_id,
-        "text": "🚀 Добро пожаловать в TajCrash Game!\n🎮 Запускай TajCrash Original Games по кнопке ниже! 🚀\nИгровые балансы виртуальные, без денежных ставок.",
-        "reply_markup": {"inline_keyboard": [[{"text": "🎮 Играть в TajCrash", "web_app": {"url": "https://shahromak.github.io/tajcrash-v11/?v=65"}}]]}
-    }).encode()
-    req = urllib.request.Request("https://api.telegram.org/bot" + BOT_TOKEN + "/sendMessage",
-        data=payload, headers={"Content-Type": "application/json"}, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=8) as response:
-            json.load(response)
-    except (urllib.error.URLError, TimeoutError, OSError):
-        raise HTTPException(502, "Telegram send failed")
+    raw = str(message.get("text") or "").strip()
+    if not raw.startswith("/"):
+        return {"ok": True}
+    command = raw.split(maxsplit=1)[0].split("@")[0].lower()
+    launch = [[{"text": "🚀 Открыть TajCrash", "web_app": {"url": BOT_WEBAPP_URL}}]]
+    if command in ("/start", "/menu", "/play"):
+        name = str((message.get("from") or {}).get("first_name") or "друг")[:48]
+        safe_name = name.replace("<", "").replace(">", "").replace("&", "")
+        telegram_send(chat_id,
+            "🚀 TajCrash Game\\n\\nПривет, " + safe_name + "! Добро пожаловать в TajCrash.\\n\\n"
+            "🎮 Crash, Пенальти, Mines, Blackjack и другие игры\\n"
+            "💱 Кошелёк с четырьмя виртуальными валютами\\n"
+            "🔐 Вход через Telegram\\n\\n"
+            "Нажми кнопку ниже, чтобы открыть приложение.\\n"
+            "ℹ️ Только виртуальные игровые балансы. Реальных ставок и вывода денег нет.",
+            launch + [[{"text": "📖 Правила", "callback_data": "tc_rules"},
+                       {"text": "🛟 Помощь", "callback_data": "tc_help"}]])
+    elif command in ("/help", "/support"):
+        telegram_send(chat_id,
+            "🛟 Помощь TajCrash\\n\\n"
+            "• /start — главное меню\\n"
+            "• /play — открыть приложение\\n"
+            "• /rules — правила и ограничения\\n"
+            "• /status — проверить адрес сервиса\\n\\n"
+            "Если приложение зависло, закрой его и открой снова через /play.",
+            launch)
+    elif command == "/rules":
+        telegram_send(chat_id,
+            "📖 Правила TajCrash\\n\\n"
+            "Это развлекательная игровая платформа с виртуальными балансами. "
+            "Курсы валют справочные. Пополнение и вывод реальных денег недоступны. "
+            "Результаты игровых раундов не являются финансовыми операциями.",
+            launch)
+    elif command == "/status":
+        telegram_send(chat_id,
+            "🟢 TajCrash: адрес проверки сервера\\n"
+            "https://tajcrash-api.onrender.com/health\\n\\n"
+            "Статус работы можно проверить по ссылке. На бесплатном сервере возможна задержка при первом запуске.",
+            launch)
+    else:
+        telegram_send(chat_id, "Команда не найдена. Открой /help или нажми кнопку запуска.", launch)
     return {"ok": True}
