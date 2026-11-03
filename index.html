@@ -640,9 +640,13 @@ try{
  const panel=document.createElement('div');panel.id='tcServerWalletInfo';panel.style.cssText='margin-top:12px;padding:12px;border:1px solid #3b6d60;border-radius:12px;line-height:1.6;font-size:13px';
  const title=document.createElement('strong');title.textContent='🛡️ Telegram аккаунт';
  const balances=document.createElement('div');const values=me.demo_balances||{};balances.textContent='Баланс сервера (только просмотр): '+['TJS','KZT','RUB','USD'].map(k=>k+': '+(Number(values[k])||0).toFixed(2)).join(' · ');
- const note=document.createElement('small');note.textContent='Игровые балансы и ставки пока локальные и не синхронизированы с сервером.';
- panel.append(title,balances,note);
- if(profileStatus){document.getElementById('tcServerWalletInfo')?.remove();profileStatus.insertAdjacentElement('afterend',panel);profileStatus.textContent='Telegram-профиль подтверждён сервером.'}
+ const note=document.createElement('small');note.textContent='Это баланс аккаунта в базе данных. Локальные игровые средства пока отдельно — автоматический перенос отключён для защиты от дублирования.';
+ const refreshBtn=document.createElement('button');refreshBtn.type='button';refreshBtn.textContent='↻ Обновить баланс аккаунта';refreshBtn.style.cssText='display:block;width:100%;margin-top:10px;padding:11px;border-radius:10px;background:#1b675b;color:#fff;border:1px solid #36bd9a;font-weight:700';
+ const ledger=document.createElement('div');ledger.id='tcAccountLedger';ledger.style.cssText='margin-top:10px;font-size:12px;line-height:1.7';
+ async function refreshAccountWallet(){refreshBtn.disabled=true;try{const [walletResponse,ledgerResponse]=await Promise.all([fetch(api+'/demo/wallet',{headers:{Authorization:'Bearer '+login.access_token},cache:'no-store'}),fetch(api+'/demo/ledger?limit=15',{headers:{Authorization:'Bearer '+login.access_token},cache:'no-store'})]);if(!walletResponse.ok||!ledgerResponse.ok)throw Error('Ошибка загрузки');const wallet=await walletResponse.json(),log=await ledgerResponse.json();const v=wallet.balances||{};balances.textContent='Баланс аккаунта: '+['TJS','KZT','RUB','USD'].map(k=>k+': '+(Number(v[k])||0).toFixed(2)).join(' · ');ledger.textContent='';const rows=log.operations||log.entries||log.ledger||[];if(Array.isArray(rows)&&rows.length){const head=document.createElement('strong');head.textContent='История серверных операций';ledger.appendChild(head);rows.forEach(x=>{const item=document.createElement('div');item.style.cssText='padding:7px 0;border-bottom:1px solid #304759';item.textContent=(x.currency||'')+' · '+((Number(x.delta_cents)||0)/100).toFixed(2)+' · '+(x.operation_id||'');ledger.appendChild(item)})}else ledger.textContent='История серверных операций пока пуста';refreshBtn.textContent='✓ Баланс обновлён'}catch(e){refreshBtn.textContent='Не удалось обновить · повторить'}finally{refreshBtn.disabled=false}}
+ refreshBtn.addEventListener('click',refreshAccountWallet);
+ panel.append(title,balances,note,refreshBtn,ledger);window.tcRefreshAccountWallet=refreshAccountWallet;
+ if(profileStatus){document.getElementById('tcServerWalletInfo')?.remove();profileStatus.insertAdjacentElement('afterend',panel);profileStatus.textContent='Telegram-профиль подтверждён сервером.'}refreshAccountWallet();
  
  const verifyBox=document.createElement('section');
  verifyBox.id='tcTelegramCodeBox';
