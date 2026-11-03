@@ -338,8 +338,7 @@ async def telegram_bot_webhook(request: Request):
             "🔐 Вход через Telegram\\n\\n"
             "Нажми кнопку ниже, чтобы открыть приложение.\\n"
             "ℹ️ Только виртуальные игровые балансы. Реальных ставок и вывода денег нет.",
-            launch + [[{"text": "📖 Правила", "callback_data": "tc_rules"},
-                       {"text": "🛟 Помощь", "callback_data": "tc_help"}]])
+            launch)
     elif command in ("/help", "/support"):
         telegram_send(chat_id,
             "🛟 Помощь TajCrash\\n\\n"
