@@ -580,14 +580,45 @@ def admin_operations(authorization: Annotated[str | None, Header()] = None, quer
             "admin_operations":[dict(zip(("admin_id","telegram_id","currency","delta_cents","balance_after_cents","reason","operation_id","created_at"),x)) for x in audit],
             "note":"Only server-recorded operation IDs are searchable; local game rounds have no verified server hash."}
 
+# Admin heartbeat is server-side, so the auto-reply reflects actual dashboard activity.
+with db() as conn:
+    conn.execute("""CREATE TABLE IF NOT EXISTS support_admin_presence (
+        admin_id BIGINT PRIMARY KEY, last_seen BIGINT NOT NULL)""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS support_auto_reply_log (
+        telegram_id BIGINT PRIMARY KEY, last_sent BIGINT NOT NULL)""")
+
+SUPPORT_AUTO_REPLY = (
+    "🤖 Здравствуйте! Спасибо за обращение в поддержку TajCrash.\\n\\n"
+    "Сейчас все операторы заняты или временно не в сети. Ваше сообщение получено и сохранено.\\n\\n"
+    "Пожалуйста, ожидайте ответа. Администратор ответит вам здесь, как только появится возможность. 💚"
+)
+
+@app.post("/admin/support/presence")
+def admin_support_presence(authorization: Annotated[str | None, Header()] = None):
+    admin_id = require_admin(authorization)
+    now = int(time.time())
+    with db() as conn:
+        conn.execute("INSERT INTO support_admin_presence(admin_id,last_seen) VALUES(?,?) "
+                     "ON CONFLICT(admin_id) DO UPDATE SET last_seen=excluded.last_seen", (admin_id,now))
+    return {"status":"online", "expires_in":30}
+
 @app.post("/support/messages")
 def support_send(body: SupportMessage, authorization: Annotated[str | None, Header()] = None):
     uid = session_uid(authorization)
     if not 1 <= len(body.message.strip()) <= 2000:
         raise HTTPException(400, "Message must be 1-2000 characters")
     with db() as conn:
+        now = int(time.time())
         conn.execute("INSERT INTO support_messages(telegram_id,sender_id,is_admin,message,created_at) VALUES(?,?,?,?,?)",
-            (uid,uid,0,body.message.strip(),int(time.time())))
+            (uid,uid,0,body.message.strip(),now))
+        online = conn.execute("SELECT 1 FROM support_admin_presence WHERE last_seen>=? LIMIT 1", (now-30,)).fetchone()
+        last_auto = conn.execute("SELECT last_sent FROM support_auto_reply_log WHERE telegram_id=?", (uid,)).fetchone()
+        # At most one automated response per user per 30 minutes while no admin is active.
+        if not online and (not last_auto or now-int(last_auto[0])>=1800):
+            conn.execute("INSERT INTO support_auto_reply_log(telegram_id,last_sent) VALUES(?,?) "
+                         "ON CONFLICT(telegram_id) DO UPDATE SET last_sent=excluded.last_sent", (uid,now))
+            conn.execute("INSERT INTO support_messages(telegram_id,sender_id,is_admin,message,created_at) VALUES(?,?,?,?,?)",
+                         (uid,0,1,SUPPORT_AUTO_REPLY.replace("\\\\n","\\n"),now))
     return {"status":"sent"}
 
 @app.get("/support/messages")
