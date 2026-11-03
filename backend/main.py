@@ -478,3 +478,147 @@ async def telegram_bot_webhook(request: Request):
     else:
         telegram_send(chat_id, "Команда не найдена. Открой /help или нажми кнопку запуска.", launch)
     return {"ok": True}
+
+# Virtual-only cashdesk requests and persistent support conversations.
+with db() as conn:
+    conn.execute("""CREATE TABLE IF NOT EXISTS virtual_requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, telegram_id BIGINT NOT NULL,
+      kind TEXT NOT NULL, currency TEXT NOT NULL, amount_cents BIGINT NOT NULL,
+      status TEXT NOT NULL, note TEXT NOT NULL, admin_id BIGINT,
+      created_at BIGINT NOT NULL, decided_at BIGINT)""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS support_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, telegram_id BIGINT NOT NULL,
+      sender_id BIGINT NOT NULL, is_admin INTEGER NOT NULL,
+      message TEXT NOT NULL, created_at BIGINT NOT NULL)""")
+
+class VirtualRequest(BaseModel):
+    kind: str
+    currency: str
+    amount_cents: int
+    note: str = ""
+
+class SupportMessage(BaseModel):
+    message: str
+
+class Decision(BaseModel):
+    approve: bool
+
+@app.post("/virtual/requests")
+def create_virtual_request(body: VirtualRequest, authorization: Annotated[str | None, Header()] = None):
+    uid = session_uid(authorization)
+    if body.kind not in ("deposit", "withdrawal") or body.currency not in ("TJS","RUB","KZT","USD") or not 1 <= body.amount_cents <= 100000000 or len(body.note) > 300:
+        raise HTTPException(400, "Invalid virtual request")
+    with db() as conn:
+        if not conn.execute("SELECT 1 FROM users WHERE telegram_id=?", (uid,)).fetchone():
+            raise HTTPException(404, "Unknown user")
+        result = conn.execute("INSERT INTO virtual_requests(telegram_id,kind,currency,amount_cents,status,note,created_at) VALUES(?,?,?,?,?,?,?)",
+            (uid,body.kind,body.currency,body.amount_cents,"pending",body.note.strip(),int(time.time())))
+        request_id = result.lastrowid
+    return {"id": request_id, "status": "pending", "mode": "virtual_only"}
+
+@app.get("/virtual/requests")
+def my_virtual_requests(authorization: Annotated[str | None, Header()] = None):
+    uid = session_uid(authorization)
+    with db() as conn:
+        rows = conn.execute("SELECT id,kind,currency,amount_cents,status,note,created_at,decided_at FROM virtual_requests WHERE telegram_id=? ORDER BY id DESC LIMIT 100", (uid,)).fetchall()
+    return {"requests": [dict(zip(("id","kind","currency","amount_cents","status","note","created_at","decided_at"),row)) for row in rows]}
+
+@app.get("/admin/requests")
+def admin_virtual_requests(authorization: Annotated[str | None, Header()] = None, status: str = "pending"):
+    require_admin(authorization)
+    if status not in ("pending","approved","rejected","all"):
+        raise HTTPException(400, "Invalid status")
+    with db() as conn:
+        sql = "SELECT id,telegram_id,kind,currency,amount_cents,status,note,admin_id,created_at,decided_at FROM virtual_requests"
+        if status != "all":
+            rows = conn.execute(sql+" WHERE status=? ORDER BY id DESC LIMIT 100", (status,)).fetchall()
+        else:
+            rows = conn.execute(sql+" ORDER BY id DESC LIMIT 100").fetchall()
+    return {"requests": [dict(zip(("id","telegram_id","kind","currency","amount_cents","status","note","admin_id","created_at","decided_at"),row)) for row in rows]}
+
+@app.post("/admin/requests/{request_id}/decision")
+def decide_virtual_request(request_id: int, body: Decision, authorization: Annotated[str | None, Header()] = None):
+    admin_id = require_admin(authorization)
+    with db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        row = conn.execute("SELECT telegram_id,kind,currency,amount_cents,status FROM virtual_requests WHERE id=?", (request_id,)).fetchone()
+        if not row:
+            raise HTTPException(404, "Request not found")
+        uid,kind,currency,amount,status = row
+        if status != "pending":
+            raise HTTPException(409, "Already reviewed")
+        new_status = "approved" if body.approve else "rejected"
+        if body.approve:
+            delta = amount if kind == "deposit" else -amount
+            updated = conn.execute("UPDATE wallets SET cents=cents+? WHERE telegram_id=? AND currency=? AND cents+?>=0",
+                (delta,uid,currency,delta))
+            if updated.rowcount != 1:
+                raise HTTPException(409, "Insufficient virtual balance")
+            balance = conn.execute("SELECT cents FROM wallets WHERE telegram_id=? AND currency=?", (uid,currency)).fetchone()[0]
+            op = f"virtual_request_{request_id}"
+            conn.execute("INSERT INTO admin_audit(admin_id,target_id,currency,delta_cents,balance_after_cents,reason,operation_id,created_at) VALUES(?,?,?,?,?,?,?,?)",
+                (admin_id,uid,currency,delta,balance,f"Approved virtual {kind} request #{request_id}",op,int(time.time())))
+        conn.execute("UPDATE virtual_requests SET status=?,admin_id=?,decided_at=? WHERE id=? AND status='pending'",
+            (new_status,admin_id,int(time.time()),request_id))
+    return {"id": request_id, "status": new_status, "mode": "virtual_only"}
+
+@app.get("/admin/operations")
+def admin_operations(authorization: Annotated[str | None, Header()] = None, query: str = "", limit: int = 50):
+    require_admin(authorization)
+    if not 1 <= limit <= 100 or len(query) > 100:
+        raise HTTPException(400, "Invalid search")
+    with db() as conn:
+        if query.isdecimal():
+            rows = conn.execute("SELECT telegram_id,currency,delta_cents,balance_after_cents,operation_id,created_at FROM demo_ledger WHERE telegram_id=? ORDER BY id DESC LIMIT ?",(int(query),limit)).fetchall()
+        else:
+            rows = conn.execute("SELECT telegram_id,currency,delta_cents,balance_after_cents,operation_id,created_at FROM demo_ledger WHERE operation_id=? ORDER BY id DESC LIMIT ?",(query,limit)).fetchall() if query else []
+        if query.isdecimal():
+            audit = conn.execute("SELECT admin_id,target_id,currency,delta_cents,balance_after_cents,reason,operation_id,created_at FROM admin_audit WHERE target_id=? ORDER BY id DESC LIMIT ?",(int(query),limit)).fetchall()
+        else:
+            audit = conn.execute("SELECT admin_id,target_id,currency,delta_cents,balance_after_cents,reason,operation_id,created_at FROM admin_audit WHERE operation_id=? LIMIT ?",(query,limit)).fetchall() if query else []
+    return {"game_operations":[dict(zip(("telegram_id","currency","delta_cents","balance_after_cents","operation_id","created_at"),x)) for x in rows],
+            "admin_operations":[dict(zip(("admin_id","telegram_id","currency","delta_cents","balance_after_cents","reason","operation_id","created_at"),x)) for x in audit],
+            "note":"Only server-recorded operation IDs are searchable; local game rounds have no verified server hash."}
+
+@app.post("/support/messages")
+def support_send(body: SupportMessage, authorization: Annotated[str | None, Header()] = None):
+    uid = session_uid(authorization)
+    if not 1 <= len(body.message.strip()) <= 2000:
+        raise HTTPException(400, "Message must be 1-2000 characters")
+    with db() as conn:
+        conn.execute("INSERT INTO support_messages(telegram_id,sender_id,is_admin,message,created_at) VALUES(?,?,?,?,?)",
+            (uid,uid,0,body.message.strip(),int(time.time())))
+    return {"status":"sent"}
+
+@app.get("/support/messages")
+def support_my_messages(authorization: Annotated[str | None, Header()] = None):
+    uid = session_uid(authorization)
+    with db() as conn:
+        rows = conn.execute("SELECT id,sender_id,is_admin,message,created_at FROM support_messages WHERE telegram_id=? ORDER BY id DESC LIMIT 100",(uid,)).fetchall()
+    return {"messages":[dict(zip(("id","sender_id","is_admin","message","created_at"),x)) for x in reversed(rows)]}
+
+@app.get("/admin/support")
+def admin_support(authorization: Annotated[str | None, Header()] = None):
+    require_admin(authorization)
+    with db() as conn:
+        rows = conn.execute("SELECT telegram_id,MAX(created_at),COUNT(*) FROM support_messages GROUP BY telegram_id ORDER BY MAX(created_at) DESC LIMIT 100").fetchall()
+    return {"conversations":[{"telegram_id":u,"last_at":t,"messages_count":n} for u,t,n in rows]}
+
+@app.get("/admin/support/{telegram_id}")
+def admin_support_thread(telegram_id: int, authorization: Annotated[str | None, Header()] = None):
+    require_admin(authorization)
+    with db() as conn:
+        rows = conn.execute("SELECT id,sender_id,is_admin,message,created_at FROM support_messages WHERE telegram_id=? ORDER BY id DESC LIMIT 100",(telegram_id,)).fetchall()
+    return {"messages":[dict(zip(("id","sender_id","is_admin","message","created_at"),x)) for x in reversed(rows)]}
+
+@app.post("/admin/support/{telegram_id}")
+def admin_support_reply(telegram_id: int, body: SupportMessage, authorization: Annotated[str | None, Header()] = None):
+    admin_id = require_admin(authorization)
+    if not 1 <= len(body.message.strip()) <= 2000:
+        raise HTTPException(400, "Message must be 1-2000 characters")
+    with db() as conn:
+        if not conn.execute("SELECT 1 FROM users WHERE telegram_id=?",(telegram_id,)).fetchone():
+            raise HTTPException(404,"Unknown user")
+        conn.execute("INSERT INTO support_messages(telegram_id,sender_id,is_admin,message,created_at) VALUES(?,?,?,?,?)",
+            (telegram_id,admin_id,1,body.message.strip(),int(time.time())))
+    return {"status":"sent"}
