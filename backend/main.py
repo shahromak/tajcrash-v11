@@ -289,7 +289,7 @@ def verify_telegram_code(body: VerifyCode, authorization: Annotated[str | None, 
     return {"status": "confirmed"}
 
 
-BOT_WEBAPP_URL = "https://shahromak.github.io/tajcrash-v11/?v=66"
+BOT_WEBAPP_URL = "https://shahromak.github.io/tajcrash-v11/?v=72"
 
 def telegram_send(chat_id: int, text: str, keyboard=None):
     payload = {"chat_id": chat_id, "text": text, "disable_web_page_preview": True}
