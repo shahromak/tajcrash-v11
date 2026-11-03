@@ -955,4 +955,38 @@ new MutationObserver(()=>{if(!page.classList.contains('active')&&page.classList.
  // Preserve the detailed vector rocket when 3D is unsupported or fails to initialize.
  if(!window.WebGLRenderingContext)fallback();
 })();</script>
+<style id="tc-lobby-navigation-v87-style">
+/* All five pages use one active state; older visibility overrides must not hide the selected game. */
+section.page#crash.active,section.page#penalty.active,section.page#mines.active,section.page#blackjack.active,section.page#touchcrash.active{display:block!important;visibility:visible!important;opacity:1!important}
+section.page#crash:not(.active),section.page#penalty:not(.active),section.page#mines:not(.active),section.page#blackjack:not(.active),section.page#touchcrash:not(.active){display:none!important}
+</style>
+<script id="tc-lobby-navigation-v87-script">(()=>{
+ const ids=new Set(['crash','penalty','mines','blackjack','touchcrash']);
+ const pages=Array.from(document.querySelectorAll('section.page'));
+ function open(id){
+  const page=document.getElementById(id);
+  if(!page||!ids.has(id))return;
+  pages.forEach(p=>p.classList.toggle('active',p===page));
+  document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===id));
+  if(id==='penalty'){
+   const card=document.getElementById('tcPenaltyGame');
+   if(card)card.hidden=false;
+   page.classList.add('tcPenaltyPlaying');
+  }else{
+   const penalty=document.getElementById('penalty');
+   penalty?.classList.remove('tcPenaltyPlaying');
+   const card=document.getElementById('tcPenaltyGame');
+   if(card)card.hidden=true;
+  }
+  window.scrollTo(0,0);
+ }
+ // Capture before legacy click handlers to prevent competing navigation.
+ window.addEventListener('click',e=>{
+  const b=e.target.closest?.('[data-tc-game]');
+  if(!b||!ids.has(b.dataset.tcGame))return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  open(b.dataset.tcGame);
+ },true);
+})();</script>
 </body></html>
