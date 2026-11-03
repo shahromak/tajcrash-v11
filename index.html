@@ -948,4 +948,30 @@ new MutationObserver(()=>{if(!page.classList.contains('active')&&page.classList.
     event.preventDefault();event.stopImmediatePropagation();openGame(id);
   },true);
 })();</script>
+
+<style id="tc-game-visibility-v84">
+main section.page:not(.active){display:none!important}
+main section.page.active{display:block!important;visibility:visible!important;opacity:1!important}
+main section#crash.page.active,main section#mines.page.active,main section#blackjack.page.active,main section#touchcrash.page.active{display:block!important}
+</style>
+<script id="tc-game-visibility-v84-js">(()=>{
+ const games=['crash','mines','blackjack','touchcrash'];
+ const hub=document.querySelector('#penalty .tcGamesHubGrid');
+ if(!hub)return;
+ function open(id){
+  const target=document.getElementById(id);if(!target)return;
+  document.querySelectorAll('section.page').forEach(p=>{p.classList.toggle('active',p===target);p.style.setProperty('display',p===target?'block':'none','important')});
+  document.querySelectorAll('[data-page]').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tcBackBar')?.removeAttribute('hidden');
+  window.scrollTo(0,0);
+ }
+ games.forEach(id=>{
+  const button=hub.querySelector('[data-tc-game="'+id+'"]');
+  if(!button)return;
+  button.addEventListener('click',event=>{event.preventDefault();event.stopImmediatePropagation();open(id)},true);
+ });
+ document.querySelectorAll('[data-page],#tcBackBtn').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('section.page').forEach(p=>p.style.removeProperty('display'));
+ },true));
+})();</script>
 </body></html>
