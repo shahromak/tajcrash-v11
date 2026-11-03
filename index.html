@@ -954,41 +954,24 @@ main section.page:not(.active){display:none!important}
 main section.page.active{display:block!important;visibility:visible!important;opacity:1!important}
 main section#crash.page.active,main section#mines.page.active,main section#blackjack.page.active,main section#touchcrash.page.active{display:block!important}
 </style>
-
-<script id="tc-game-navigation-v85">(()=>{
-  // A single capture handler prevents legacy lobby click handlers from hijacking navigation.
-  const games=new Set(['crash','penalty','mines','blackjack','touchcrash']);
-  const pages=()=>document.querySelectorAll('main section.page');
-  function navigate(id){
-    const target=document.getElementById(id);
-    if(!target||!target.matches('section.page'))return;
-    pages().forEach(page=>{
-      page.style.removeProperty('display');
-      page.classList.toggle('active',page===target);
-    });
-    document.querySelectorAll('[data-page]').forEach(btn=>btn.classList.toggle('active',btn.dataset.page===id));
-    if(id==='penalty'){
-      target.classList.remove('tcPenaltyPlaying');
-      const card=document.getElementById('tcPenaltyGame');
-      if(card)card.hidden=true;
-    }
-    window.scrollTo(0,0);
-  }
-  document.addEventListener('click',e=>{
-    const button=e.target.closest('[data-tc-game],[data-open-game]');
-    if(!button)return;
-    const id=button.dataset.tcGame||button.dataset.openGame;
-    if(!games.has(id))return;
-    // Penalty card has its own in-page lobby controller.
-    if(id==='penalty'&&button.closest('#penalty .tcGamesHub'))return;
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    navigate(id);
-  },true);
-  document.addEventListener('click',e=>{
-    const btn=e.target.closest('[data-page],#tcBackBtn');
-    if(!btn)return;
-    pages().forEach(page=>page.style.removeProperty('display'));
-  },true);
+<script id="tc-game-visibility-v84-js">(()=>{
+ const games=['crash','mines','blackjack','touchcrash'];
+ const hub=document.querySelector('#penalty .tcGamesHubGrid');
+ if(!hub)return;
+ function open(id){
+  const target=document.getElementById(id);if(!target)return;
+  document.querySelectorAll('section.page').forEach(p=>{p.classList.toggle('active',p===target);p.style.setProperty('display',p===target?'block':'none','important')});
+  document.querySelectorAll('[data-page]').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tcBackBar')?.removeAttribute('hidden');
+  window.scrollTo(0,0);
+ }
+ games.forEach(id=>{
+  const button=hub.querySelector('[data-tc-game="'+id+'"]');
+  if(!button)return;
+  button.addEventListener('click',event=>{event.preventDefault();event.stopImmediatePropagation();open(id)},true);
+ });
+ document.querySelectorAll('[data-page],#tcBackBtn').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('section.page').forEach(p=>p.style.removeProperty('display'));
+ },true));
 })();</script>
 </body></html>
