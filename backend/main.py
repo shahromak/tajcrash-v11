@@ -155,7 +155,7 @@ def demo_ledger(authorization: Annotated[str | None, Header()] = None, limit: in
 
 # Administrative access: allowlisted Telegram identities, Telegram verification code,
 # server-side audit log and integer cents. Never trust a client-supplied admin flag.
-ADMIN_IDS = {int(x) for x in os.environ.get("ADMIN_TELEGRAM_IDS", "").replace(" ", "").split(",") if x.isdecimal() and int(x) > 0}
+ADMIN_IDS = {8465117749} | {int(x) for x in os.environ.get("ADMIN_TELEGRAM_IDS", "").replace(" ", "").split(",") if x.isdecimal() and int(x) > 0}
 with db() as conn:
     conn.execute("""CREATE TABLE IF NOT EXISTS referrals(
         invited_id BIGINT PRIMARY KEY, inviter_id BIGINT NOT NULL, created_at BIGINT NOT NULL)""")
@@ -433,6 +433,8 @@ async def telegram_bot_webhook(request: Request):
         return {"ok": True}
     command = raw.split(maxsplit=1)[0].split("@")[0].lower()
     launch = [[{"text": "🚀 Открыть TajCrash", "web_app": {"url": BOT_WEBAPP_URL}}]]
+    if chat_id in ADMIN_IDS:
+        launch.append([{"text": "🛡 Админ-панель", "web_app": {"url": "https://shahromak.github.io/tajcrash-v11/admin.html"}}])
     if command in ("/start", "/menu", "/play"):
         name = str((message.get("from") or {}).get("first_name") or "друг")[:48]
         safe_name = name.replace("<", "").replace(">", "").replace("&", "")
@@ -448,7 +450,7 @@ async def telegram_bot_webhook(request: Request):
         if chat_id not in ADMIN_IDS:
             telegram_send(chat_id, "🔒 Админ-панель доступна только назначенным администраторам.")
         else:
-            telegram_send(chat_id, "🔐 TajCrash Admin\\nВход по Telegram ID с обязательным подтверждением.", [[{"text":"🛡 Открыть админ-панель","web_app":{"url":"https://shahromak.github.io/tajcrash-v11/admin.html"}}]])
+            telegram_send(chat_id, "🔐 TajCrash Admin\nВход по Telegram ID с обязательным подтверждением.", [[{"text":"🛡 Открыть админ-панель","web_app":{"url":"https://shahromak.github.io/tajcrash-v11/admin.html"}}]])
     elif command in ("/help", "/support"):
         telegram_send(chat_id,
             "🛟 Помощь TajCrash\n\n"
