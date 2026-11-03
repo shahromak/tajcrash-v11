@@ -332,33 +332,35 @@ async def telegram_bot_webhook(request: Request):
         name = str((message.get("from") or {}).get("first_name") or "друг")[:48]
         safe_name = name.replace("<", "").replace(">", "").replace("&", "")
         telegram_send(chat_id,
-            "🚀 TajCrash Game\\n\\nПривет, " + safe_name + "! Добро пожаловать в TajCrash.\\n\\n"
-            "🎮 Crash, Пенальти, Mines, Blackjack и другие игры\\n"
-            "💱 Кошелёк с четырьмя виртуальными валютами\\n"
-            "🔐 Вход через Telegram\\n\\n"
-            "Нажми кнопку ниже, чтобы открыть приложение.\\n"
+            "🚀 TajCrash Game\n\nПривет, " + safe_name + "! Добро пожаловать в TajCrash.\n\n"
+            "🎮 Crash, Пенальти, Mines, Blackjack и другие игры\n"
+            "💱 Кошелёк с четырьмя виртуальными валютами\n"
+            "🔐 Вход через Telegram\n\n"
+            "Нажми кнопку ниже, чтобы открыть приложение.\n"
             "ℹ️ Только виртуальные игровые балансы. Реальных ставок и вывода денег нет.",
             launch)
     elif command in ("/help", "/support"):
         telegram_send(chat_id,
-            "🛟 Помощь TajCrash\\n\\n"
-            "• /start — главное меню\\n"
-            "• /play — открыть приложение\\n"
-            "• /rules — правила и ограничения\\n"
-            "• /status — проверить адрес сервиса\\n\\n"
+            "🛟 Помощь TajCrash\n\n"
+            "• /start — главное меню\n"
+            "• /play — открыть приложение\n"
+            "• /rules — правила и ограничения\n"
+            "• /status — проверить адрес сервиса\n\n"
             "Если приложение зависло, закрой его и открой снова через /play.",
             launch)
     elif command == "/rules":
         telegram_send(chat_id,
-            "📖 Правила TajCrash\\n\\n"
+            "📖 Правила TajCrash\n\n"
             "Это развлекательная игровая платформа с виртуальными балансами. "
             "Курсы валют справочные. Пополнение и вывод реальных денег недоступны. "
             "Результаты игровых раундов не являются финансовыми операциями.",
             launch)
+    elif command in ("/exit", "/logout", "/close"):
+        telegram_send(chat_id, "👋 Для выхода из мини-приложения нажми «Закрыть» в Telegram. Для повторного запуска отправь /play.")
     elif command == "/status":
         telegram_send(chat_id,
-            "🟢 TajCrash: адрес проверки сервера\\n"
-            "https://tajcrash-api.onrender.com/health\\n\\n"
+            "🟢 TajCrash: адрес проверки сервера\n"
+            "https://tajcrash-api.onrender.com/health\n\n"
             "Статус работы можно проверить по ссылке. На бесплатном сервере возможна задержка при первом запуске.",
             launch)
     else:
