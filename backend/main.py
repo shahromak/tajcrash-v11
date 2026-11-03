@@ -601,8 +601,8 @@ def support_my_messages(authorization: Annotated[str | None, Header()] = None):
 def admin_support(authorization: Annotated[str | None, Header()] = None):
     require_admin(authorization)
     with db() as conn:
-        rows = conn.execute("SELECT telegram_id,MAX(created_at),COUNT(*) FROM support_messages GROUP BY telegram_id ORDER BY MAX(created_at) DESC LIMIT 100").fetchall()
-    return {"conversations":[{"telegram_id":u,"last_at":t,"messages_count":n} for u,t,n in rows]}
+        rows = conn.execute("SELECT telegram_id,MAX(created_at),COUNT(*),MAX(id) FROM support_messages GROUP BY telegram_id ORDER BY MAX(id) DESC LIMIT 100").fetchall()
+    return {"conversations":[{"telegram_id":u,"last_at":t,"messages_count":n,"last_message_id":last_id} for u,t,n,last_id in rows]}
 
 @app.get("/admin/support/{telegram_id}")
 def admin_support_thread(telegram_id: int, authorization: Annotated[str | None, Header()] = None):
