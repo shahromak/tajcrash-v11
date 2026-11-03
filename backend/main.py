@@ -152,6 +152,103 @@ def demo_ledger(authorization: Annotated[str | None, Header()] = None, limit: in
     ]}
 
 
+
+# Administrative access: allowlisted Telegram identities, Telegram verification code,
+# server-side audit log and integer cents. Never trust a client-supplied admin flag.
+ADMIN_IDS = {int(x) for x in os.environ.get("ADMIN_TELEGRAM_IDS", "").replace(" ", "").split(",") if x.isdecimal() and int(x) > 0}
+with db() as conn:
+    conn.execute("""CREATE TABLE IF NOT EXISTS referrals(
+        invited_id BIGINT PRIMARY KEY, inviter_id BIGINT NOT NULL, created_at BIGINT NOT NULL)""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS admin_audit(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        admin_id BIGINT NOT NULL, target_id BIGINT NOT NULL,
+        currency TEXT NOT NULL, delta_cents BIGINT NOT NULL,
+        balance_after_cents BIGINT NOT NULL, reason TEXT NOT NULL,
+        operation_id TEXT NOT NULL UNIQUE, created_at BIGINT NOT NULL)""")
+
+def require_admin(authorization):
+    uid = session_uid(authorization)
+    if uid not in ADMIN_IDS:
+        raise HTTPException(403, "Admin access denied")
+    with db() as conn:
+        if not conn.execute("SELECT 1 FROM telegram_confirmations WHERE telegram_id=?", (uid,)).fetchone():
+            raise HTTPException(403, "Confirm Telegram code first")
+    return uid
+
+class AdminAdjustment(BaseModel):
+    telegram_id: int
+    currency: str
+    delta_cents: int
+    reason: str
+    operation_id: str
+
+@app.get("/admin/me")
+def admin_me(authorization: Annotated[str | None, Header()] = None):
+    uid = require_admin(authorization)
+    return {"admin": True, "telegram_id": uid, "confirmed": True}
+
+@app.get("/admin/users")
+def admin_users(authorization: Annotated[str | None, Header()] = None, query: str = "", limit: int = 30):
+    require_admin(authorization)
+    if not 1 <= limit <= 100 or len(query) > 100:
+        raise HTTPException(400, "Invalid search")
+    with db() as conn:
+        if query.isdecimal():
+            rows = conn.execute("SELECT telegram_id,first_name,username,updated_at FROM users WHERE telegram_id=? LIMIT ?", (int(query), limit)).fetchall()
+        else:
+            rows = conn.execute("SELECT telegram_id,first_name,username,updated_at FROM users WHERE LOWER(first_name) LIKE ? OR LOWER(username) LIKE ? ORDER BY updated_at DESC LIMIT ?", ("%"+query.lower()+"%", "%"+query.lower()+"%", limit)).fetchall()
+    return {"users": [{"telegram_id": u, "first_name": n, "username": handle, "updated_at": t} for u,n,handle,t in rows]}
+
+@app.get("/admin/user/{telegram_id}")
+def admin_user(telegram_id: int, authorization: Annotated[str | None, Header()] = None):
+    require_admin(authorization)
+    if telegram_id <= 0:
+        raise HTTPException(400, "Invalid Telegram ID")
+    with db() as conn:
+        user = conn.execute("SELECT telegram_id,first_name,username,updated_at FROM users WHERE telegram_id=?", (telegram_id,)).fetchone()
+        if not user:
+            raise HTTPException(404, "User not registered")
+        balances = dict(conn.execute("SELECT currency,cents FROM wallets WHERE telegram_id=?", (telegram_id,)).fetchall())
+        ref = conn.execute("SELECT inviter_id,created_at FROM referrals WHERE invited_id=?", (telegram_id,)).fetchone()
+        count = conn.execute("SELECT COUNT(*) FROM referrals WHERE inviter_id=?", (telegram_id,)).fetchone()[0]
+        audit = conn.execute("SELECT admin_id,currency,delta_cents,balance_after_cents,reason,created_at FROM admin_audit WHERE target_id=? ORDER BY id DESC LIMIT 20", (telegram_id,)).fetchall()
+    return {"telegram_id": user[0], "first_name": user[1], "username": user[2], "updated_at": user[3],
+            "balances_cents": {k: balances.get(k,0) for k in ("TJS","RUB","KZT","USD")},
+            "referrer_id": ref[0] if ref else None, "referrals_count": count,
+            "referral_link": f"https://t.me/TajCrashGameBot?startapp=ref_{telegram_id}",
+            "audit": [{"admin_id": a, "currency": cur, "delta_cents": delta, "balance_after_cents": balance, "reason": reason, "created_at": ts} for a,cur,delta,balance,reason,ts in audit]}
+
+@app.post("/admin/adjust")
+def admin_adjust(body: AdminAdjustment, authorization: Annotated[str | None, Header()] = None):
+    admin_id = require_admin(authorization)
+    if body.telegram_id <= 0 or body.currency not in ("TJS","RUB","KZT","USD") or not -100000000 <= body.delta_cents <= 100000000 or body.delta_cents == 0:
+        raise HTTPException(400, "Invalid adjustment")
+    if not 5 <= len(body.reason.strip()) <= 200 or not 12 <= len(body.operation_id) <= 100 or not all(c.isascii() and (c.isalnum() or c in "-_") for c in body.operation_id):
+        raise HTTPException(400, "Reason and unique operation ID required")
+    with db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        existing = conn.execute("SELECT admin_id,target_id,currency,delta_cents,balance_after_cents FROM admin_audit WHERE operation_id=?", (body.operation_id,)).fetchone()
+        if existing:
+            if existing[:4] != (admin_id, body.telegram_id, body.currency, body.delta_cents):
+                raise HTTPException(409, "Operation ID already used")
+            return {"status":"already_processed","balance_cents":existing[4]}
+        if not conn.execute("SELECT 1 FROM users WHERE telegram_id=?", (body.telegram_id,)).fetchone():
+            raise HTTPException(404, "User not registered")
+        updated = conn.execute("UPDATE wallets SET cents=cents+? WHERE telegram_id=? AND currency=? AND cents+?>=0", (body.delta_cents, body.telegram_id, body.currency, body.delta_cents))
+        if updated.rowcount != 1:
+            raise HTTPException(409, "Insufficient virtual balance")
+        balance = conn.execute("SELECT cents FROM wallets WHERE telegram_id=? AND currency=?", (body.telegram_id, body.currency)).fetchone()[0]
+        conn.execute("INSERT INTO admin_audit(admin_id,target_id,currency,delta_cents,balance_after_cents,reason,operation_id,created_at) VALUES(?,?,?,?,?,?,?,?)", (admin_id, body.telegram_id, body.currency, body.delta_cents, balance, body.reason.strip(), body.operation_id, int(time.time())))
+    return {"status":"accepted","balance_cents":balance}
+
+@app.get("/referral/me")
+def referral_me(authorization: Annotated[str | None, Header()] = None):
+    uid = session_uid(authorization)
+    with db() as conn:
+        count = conn.execute("SELECT COUNT(*) FROM referrals WHERE inviter_id=?", (uid,)).fetchone()[0]
+        ref = conn.execute("SELECT inviter_id FROM referrals WHERE invited_id=?", (uid,)).fetchone()
+    return {"referral_link": f"https://t.me/TajCrashGameBot?startapp=ref_{uid}", "referrals_count": count, "invited_by": ref[0] if ref else None}
+
 class VerifyCode(BaseModel):
     code: str
 
@@ -181,7 +278,7 @@ def verify_telegram(raw: str):
     now = int(time.time())
     if auth_date > now + 30 or now - auth_date > 300 or uid <= 0:
         raise HTTPException(401, "Expired Telegram initData")
-    return uid, str(user.get("first_name", "Игрок"))[:128], str(user.get("username", ""))[:64]
+    return uid, str(user.get("first_name", "Игрок"))[:128], str(user.get("username", ""))[:64], data.get("start_param", "")
 
 def sign_session(uid: int):
     expires = int(time.time()) + 86400
@@ -216,13 +313,21 @@ def health():
 
 @app.post("/auth/telegram")
 def telegram_login(body: Login):
-    uid, first_name, username = verify_telegram(body.init_data)
+    uid, first_name, username, start_param = verify_telegram(body.init_data)
     with db() as conn:
         conn.execute("""INSERT INTO users(telegram_id,first_name,username,updated_at) VALUES(?,?,?,?)
             ON CONFLICT(telegram_id) DO UPDATE SET first_name=excluded.first_name,
             username=excluded.username,updated_at=excluded.updated_at""", (uid, first_name, username, int(time.time())))
         for currency in ("TJS", "RUB", "KZT", "USD"):
             conn.execute("INSERT OR IGNORE INTO wallets(telegram_id,currency,cents) VALUES(?,?,?)", (uid, currency, 100000))
+    # Referral is accepted only from Telegram-signed initData and only once.
+    if start_param.startswith("ref_") and start_param[4:].isascii() and start_param[4:].isdigit():
+        inviter = int(start_param[4:])
+        if inviter != uid and inviter > 0:
+            with db() as conn:
+                known = conn.execute("SELECT 1 FROM users WHERE telegram_id=?", (inviter,)).fetchone()
+                if known:
+                    conn.execute("INSERT OR IGNORE INTO referrals(invited_id,inviter_id,created_at) VALUES(?,?,?)", (uid, inviter, int(time.time())))
     return {"access_token": sign_session(uid), "token_type": "bearer", "profile": profile(uid)}
 
 @app.get("/me")
@@ -289,7 +394,7 @@ def verify_telegram_code(body: VerifyCode, authorization: Annotated[str | None, 
     return {"status": "confirmed"}
 
 
-BOT_WEBAPP_URL = "https://shahromak.github.io/tajcrash-v11/?v=72"
+BOT_WEBAPP_URL = "https://shahromak.github.io/tajcrash-v11/"
 
 def telegram_send(chat_id: int, text: str, keyboard=None):
     payload = {"chat_id": chat_id, "text": text, "disable_web_page_preview": True}
