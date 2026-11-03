@@ -511,9 +511,9 @@ def create_virtual_request(body: VirtualRequest, authorization: Annotated[str | 
     with db() as conn:
         if not conn.execute("SELECT 1 FROM users WHERE telegram_id=?", (uid,)).fetchone():
             raise HTTPException(404, "Unknown user")
-        result = conn.execute("INSERT INTO virtual_requests(telegram_id,kind,currency,amount_cents,status,note,created_at) VALUES(?,?,?,?,?,?,?)",
+        result = conn.execute("INSERT INTO virtual_requests(telegram_id,kind,currency,amount_cents,status,note,created_at) VALUES(?,?,?,?,?,?,?) RETURNING id",
             (uid,body.kind,body.currency,body.amount_cents,"pending",body.note.strip(),int(time.time())))
-        request_id = result.lastrowid
+        request_id = result.fetchone()[0]
     return {"id": request_id, "status": "pending", "mode": "virtual_only"}
 
 @app.get("/virtual/requests")
