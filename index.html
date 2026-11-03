@@ -760,8 +760,7 @@ function render(){
  });
 }
 document.querySelectorAll('[data-tc-history]').forEach(b=>b.addEventListener('click',()=>{filter=b.dataset.tcHistory;document.querySelectorAll('[data-tc-history]').forEach(x=>x.classList.toggle('active',x===b));render()}));
-const observer=new MutationObserver(()=>{if(!$('historyList')?.dataset.tcRendering){$('historyList').dataset.tcRendering='1';render();delete $('historyList').dataset.tcRendering}});
-if($('historyList'))observer.observe($('historyList'),{childList:true});
+let lastHistory='';setInterval(()=>{const value=localStorage.getItem('tcHistory')||'[]';if(value!==lastHistory){lastHistory=value;render()}},1500);
 document.querySelectorAll('.bottomNav [data-page="history"]').forEach(b=>b.addEventListener('click',()=>setTimeout(render,0)));
 $('clearHistory')?.addEventListener('click',()=>setTimeout(render,0));
 function wallet(){const balances=window.tcWalletBridge?.get()||{};const el=$('tcWalletSummary');if(el)el.textContent='💱 TJS '+Number(balances.TJS||0).toFixed(2)+' · KZT '+Number(balances.KZT||0).toFixed(2)+' · RUB '+Number(balances.RUB||0).toFixed(2)+' · USD '+Number(balances.USD||0).toFixed(2)}
