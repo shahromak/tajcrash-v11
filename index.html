@@ -864,4 +864,34 @@ const observer=new MutationObserver(refresh);pages.forEach(p=>observer.observe(p
 const hub=document.querySelector('.tcGamesHub');if(!hub)return;
 hub.addEventListener('click',e=>{const b=e.target.closest('[data-tc-game]');if(!b)return;const game=b.dataset.tcGame;if(game==='penalty'){document.querySelector('.penaltyCard')?.scrollIntoView({behavior:'smooth',block:'start'});return}const existing=document.querySelector('[data-open-game="'+game+'"]');if(existing){existing.click();return}if(game==='crash'){document.getElementById('cardCrash')?.click();return}});
 const back=document.getElementById('tcBackBar'),backBtn=document.getElementById('tcBackBtn');if(back&&backBtn){const pages=[...document.querySelectorAll('section.page')];let last=pages.find(p=>p.classList.contains('active'))?.id||'home';const stack=[];let goingBack=false;const sync=()=>{const now=pages.find(p=>p.classList.contains('active'))?.id||last;if(now!==last){if(!goingBack&&last!==now){stack.push(last);if(stack.length>12)stack.shift()}last=now;goingBack=false}back.hidden=now==='home'&&stack.length===0;const title=document.getElementById('tcBackTitle');if(title)title.textContent=({penalty:'Игры',wallet:'Кошелёк',history:'История',profile:'Профиль',settings:'Настройки',support:'Поддержка'})[now]||''};const observer=new MutationObserver(sync);pages.forEach(p=>observer.observe(p,{attributes:true,attributeFilter:['class']}));backBtn.onclick=()=>{const target=stack.pop()||'home';goingBack=true;const nav=document.querySelector('.bottomNav [data-page="'+target+'"]');if(nav)nav.click();else{pages.forEach(p=>p.classList.toggle('active',p.id===target));document.querySelectorAll('.bottomNav [data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===target))}last=target;goingBack=false;window.scrollTo({top:0,behavior:'instant'});sync()};sync()}
+})();</script><style id="tc-v80-major">
+html{scroll-padding-top:12px}body{overflow-x:hidden}
+#penalty .tcGamesHub{position:relative;overflow:hidden;padding:22px 17px 20px;background:radial-gradient(circle at 88% 4%,#0ff7b144,transparent 45%),linear-gradient(145deg,#132f44,#0a1a2d);border:1px solid #32b79b;box-shadow:0 12px 32px #0007,0 0 0 1px #11e5a522}
+#penalty .tcGamesHub:before{content:"";position:absolute;width:170px;height:170px;right:-65px;top:-100px;border-radius:50%;border:35px solid #23e5ad13;pointer-events:none}
+#penalty .tcGamesHub h2{font-size:27px;letter-spacing:-.7px}
+#penalty .tcGamesHubGrid{gap:11px}
+#penalty .tcGamesHubGrid button{position:relative;min-height:130px;padding:16px;border:1px solid #2b6576;background:linear-gradient(145deg,#1b4050,#102438);box-shadow:inset 0 1px #ffffff13,0 5px 14px #0004;transition:transform .16s,border-color .16s}
+#penalty .tcGamesHubGrid button:active{transform:scale(.96);border-color:#4cf8c9}
+#penalty .tcGamesHubGrid button span{font-size:32px;filter:drop-shadow(0 3px 7px #0008)}
+#penalty .tcGamesHubGrid button strong{font-size:16px}
+#penalty .tcGamesHubGrid button small{font-size:11px}
+#penalty .tcGamesHubGrid button:first-child{background:linear-gradient(145deg,#29365c,#15284a)}
+#penalty .tcGamesHubGrid button:nth-child(2){background:linear-gradient(145deg,#0f6a54,#123d40)}
+#penalty .tcGamesHubGrid button:nth-child(3){background:linear-gradient(145deg,#163d64,#132e45)}
+#penalty .tcGamesHubGrid button:nth-child(4){background:linear-gradient(145deg,#49304c,#23243d)}
+#penalty .tcGamesHubGrid button:nth-child(5){background:linear-gradient(145deg,#59421c,#2d2c34)}
+#penalty .penaltyCard{border-radius:23px!important;overflow:hidden;border:1px solid #2b7b74!important;box-shadow:0 12px 28px #0006}
+#penalty .penaltyCard h2{font-size:24px!important;letter-spacing:-.5px}
+#penalty .penaltyPitch{border-radius:22px!important;box-shadow:0 0 22px #1bf0ac30}
+#penalty .keeper.dive-target{transform:translate3d(var(--save-x,0px),var(--save-y,0px),0) rotate(var(--save-angle,0deg)) scale(1.08)!important}
+#penalty .goal{touch-action:manipulation}
+#tcBackBar{position:relative!important;top:auto!important;z-index:3!important}
+@media(max-width:380px){#penalty .tcGamesHubGrid button{min-height:115px}}
+</style>
+<script id="tc-v80-navigation">(()=>{
+const pages=[...document.querySelectorAll('section.page')],navs=[...document.querySelectorAll('[data-page]')];const scrollTop=()=>{window.scrollTo(0,0);document.documentElement.scrollTop=0;document.body.scrollTop=0};
+navs.forEach(b=>b.addEventListener('click',()=>{requestAnimationFrame(scrollTop);setTimeout(scrollTop,90)}));
+document.querySelectorAll('[data-open-game]').forEach(b=>b.addEventListener('click',()=>{requestAnimationFrame(scrollTop);setTimeout(scrollTop,90)}));
+const hub=document.querySelector('.tcGamesHub');if(hub){const p=document.createElement('div');p.className='tcGameLobbyHeader';p.textContent='🎮 5 ИГРОВЫХ РЕЖИМОВ';p.style.cssText='font-size:11px;letter-spacing:2px;font-weight:900;color:#73ffd6;margin-bottom:8px';hub.prepend(p)}
+const observer=new MutationObserver(()=>{const current=pages.find(p=>p.classList.contains('active'))?.id;if(current&&current!==observer._last){observer._last=current;requestAnimationFrame(scrollTop)}});pages.forEach(p=>observer.observe(p,{attributes:true,attributeFilter:['class']}));
 })();</script></body></html>
