@@ -15,7 +15,7 @@ async function openChat(id,silent=false){if(chatThreadBusy||!token)return;chatTh
 $('loadChats').onclick=()=>loadChats();$('chatSearch').oninput=chatListRender;$('chatList').onclick=e=>{const b=e.target.closest('[data-chat]');if(b){lastThreadSignature='';openChat(Number(b.dataset.chat))}};$('chatBack').onclick=()=>$('supportInbox').classList.remove('chat-open');
 $('chatForm').onsubmit=async e=>{e.preventDefault();const input=$('replyText'),button=$('replySend');const message=input.value.trim();if(!activeChat||!message||button.disabled)return;button.disabled=true;try{await call('/admin/support/'+activeChat,{method:'POST',body:JSON.stringify({message})});input.value='';lastThreadSignature='';await openChat(activeChat,true);msg('✓ Ответ отправлен')}catch(err){msg(err.message)}finally{button.disabled=false}};
 $('replyText').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('chatForm').requestSubmit()}});
-function startChatPolling(){if(chatPoll)return;loadChats(true);chatPoll=setInterval(()=>{if(document.hidden||!token)return;loadChats(true);if(activeChat)openChat(activeChat,true)},5000)}
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&token){loadChats(true);if(activeChat)openChat(activeChat,true)}});
+async function pingAdminPresence(){if(!token||document.hidden||!$('panel')||$('panel').classList.contains('hidden'))return;try{await call('/admin/support/presence',{method:'POST'})}catch(e){}}function startChatPolling(){if(chatPoll)return;pingAdminPresence();loadChats(true);chatPoll=setInterval(()=>{if(document.hidden||!token)return;pingAdminPresence();loadChats(true);if(activeChat)openChat(activeChat,true)},5000)}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&token){pingAdminPresence();loadChats(true);if(activeChat)openChat(activeChat,true)}});
 if(tg?.initData)login();else msg('Для входа открой страницу внутри Telegram Mini App.')})();
 </script></body></html>
