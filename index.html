@@ -1016,4 +1016,27 @@ for(const [id,statusId,anchorSel,startIds] of setups){try{
  new MutationObserver(render).observe(status,{childList:true,subtree:true,characterData:true});render();
  for(const bid of startIds){const btn=document.getElementById(bid);if(btn)btn.addEventListener('click',()=>{box.classList.remove('tcV93Visible');last=''},true)}
  }catch(err){console.warn('TajCrash outcome',id,err)}}
+})();</script><style id="tc-v94-flight-fx">
+#sky{position:relative!important;overflow:hidden!important;isolation:isolate}
+#sky .tcWindV94{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:3}
+#sky .tcWindV94 i{position:absolute;left:-40%;height:2px;width:var(--w);top:var(--y);opacity:0;border-radius:100px;background:linear-gradient(90deg,transparent,#b7eaffaa,#fff,transparent);transform:rotate(-22deg);animation:tcWindRun var(--t) linear infinite;animation-delay:var(--d);filter:drop-shadow(0 0 4px #7ecfff)}
+#sky.tcFlying .tcWindV94 i{opacity:.9}
+@keyframes tcWindRun{0%{transform:translate(-25%,20px) rotate(-22deg);opacity:0}15%{opacity:.8}85%{opacity:.75}100%{transform:translate(540%,-220px) rotate(-22deg);opacity:0}}
+#sky .tcFlareV94{position:absolute;z-index:4;pointer-events:none;width:100px;height:18px;border-radius:100%;background:linear-gradient(90deg,#ffeb9c,#ff7a21bb,#d43eff55,transparent);filter:blur(8px);opacity:0;transform:rotate(-27deg);transition:opacity .25s}
+#sky.tcFlying .tcFlareV94{opacity:.85;animation:tcFlareFlicker .14s infinite alternate}
+@keyframes tcFlareFlicker{to{filter:blur(12px);opacity:.55;scale:1.2 .8}}
+#sky.tcFlying #rocket{animation:tcV94Vibrate .12s ease-in-out infinite alternate!important}
+@keyframes tcV94Vibrate{from{filter:drop-shadow(0 0 10px #ff852e)}to{filter:drop-shadow(0 0 24px #ff39d6)}}
+#sky .tcStarsV94{position:absolute;inset:0;z-index:1;pointer-events:none;background-image:radial-gradient(1px 2px at 12% 20%,white 90%,transparent),radial-gradient(2px 2px at 64% 32%,#9feaff 90%,transparent),radial-gradient(1px 1px at 82% 70%,white 90%,transparent);opacity:0}
+#sky.tcFlying .tcStarsV94{opacity:.8;animation:tcStarDrift 1s linear infinite}
+@keyframes tcStarDrift{to{background-position:-130px 90px}}
+@media(prefers-reduced-motion:reduce){#sky .tcWindV94 i,#sky .tcStarsV94,#sky .tcFlareV94,#sky.tcFlying #rocket{animation:none!important}}
+</style><script id="tc-v94-flight-fx-js">(()=>{
+const sky=document.getElementById('sky'),rocket=document.getElementById('rocket'),start=document.getElementById('start'),cash=document.getElementById('cash');if(!sky||!rocket)return;
+const stars=document.createElement('div');stars.className='tcStarsV94';sky.prepend(stars);
+const wind=document.createElement('div');wind.className='tcWindV94';for(let i=0;i<22;i++){const p=document.createElement('i');p.style.setProperty('--y',(5+(i*43)%90)+'%');p.style.setProperty('--w',(35+(i*19)%95)+'px');p.style.setProperty('--t',(0.65+(i%7)*.14)+'s');p.style.setProperty('--d',(-i*.11)+'s');wind.appendChild(p)}sky.appendChild(wind);
+const flare=document.createElement('div');flare.className='tcFlareV94';sky.appendChild(flare);
+let frame=0;function track(){const active=sky.classList.contains('tcFlying');if(active){const a=rocket.getBoundingClientRect(),b=sky.getBoundingClientRect();flare.style.left=(a.left-b.left+a.width*.03-60)+'px';flare.style.top=(a.top-b.top+a.height*.72)+'px'}frame=requestAnimationFrame(track)}
+document.addEventListener('visibilitychange',()=>{if(document.hidden){cancelAnimationFrame(frame);frame=0}else if(!frame)track()});
+track();
 })();</script></body></html>
