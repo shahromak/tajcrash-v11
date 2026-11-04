@@ -982,4 +982,18 @@ for(const [pageId,statusId] of specs){
  const startIds={crash:['start'],penalty:['penReset'],mines:['minesStart'],blackjack:['bjDeal'],touchcrash:['touchStart']}[pageId];
  for(const id of startIds){const b=document.getElementById(id);if(b)b.addEventListener('click',()=>{result.classList.remove('show');previous='';lastKind=''},true)}
 }
+})();</script><style id="tc-v92-result-overlay">
+#blackjack .cardTable,#mines #minesGrid,#touchcrash .card{position:relative!important}
+#blackjack .cardTable>.tcResultV91,#mines #minesGrid>.tcResultV91{position:absolute!important;left:5%!important;right:5%!important;top:50%!important;transform:translateY(-50%)!important;z-index:25!important;margin:0!important;pointer-events:none!important;backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);box-shadow:0 12px 40px #000a,0 0 32px #30e5ac55}
+#blackjack .cardTable>.tcResultV91:not(.win),#mines #minesGrid>.tcResultV91:not(.win){box-shadow:0 12px 40px #000a,0 0 32px #ff477f55}
+#blackjack .cardTable>.tcResultV91.show,#mines #minesGrid>.tcResultV91.show{display:block!important}
+#blackjack .cardTable{min-height:280px}
+#touchcrash .tcResultV91,#penalty .tcResultV91{position:relative;z-index:5}
+</style><script id="tc-v92-result-position">(()=>{
+const targets=[['blackjack','.cardTable'],['mines','#minesGrid'],['touchcrash','.card'],['penalty','.penaltyCard']];
+for(const [id,selector] of targets){const page=document.getElementById(id),target=page?.querySelector(selector),result=page?.querySelector('.tcResultV91');if(!target||!result)continue;
+if(id==='blackjack'||id==='mines')target.appendChild(result);
+else if(id==='touchcrash'){const display=page.querySelector('#touchMult')?.parentElement;if(display)display.insertAdjacentElement('afterend',result)}
+else{const score=page.querySelector('.penaltyScore');if(score)score.insertAdjacentElement('beforebegin',result)}
+}
 })();</script></body></html>
