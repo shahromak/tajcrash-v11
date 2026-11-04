@@ -1039,4 +1039,25 @@ const flare=document.createElement('div');flare.className='tcFlareV94';sky.appen
 let frame=0;function track(){const active=sky.classList.contains('tcFlying');if(active){const a=rocket.getBoundingClientRect(),b=sky.getBoundingClientRect();flare.style.left=(a.left-b.left+a.width*.03-60)+'px';flare.style.top=(a.top-b.top+a.height*.72)+'px'}frame=requestAnimationFrame(track)}
 document.addEventListener('visibilitychange',()=>{if(document.hidden){cancelAnimationFrame(frame);frame=0}else if(!frame)track()});
 track();
-})();</script></body></html>
+})();</script><style id="tc-v96-premium-loading">
+#tcAuthGate{padding:18px!important;background:radial-gradient(ellipse at 50% 28%,#123a4a 0%,#071627 44%,#030812 100%)!important}
+#tcAuthGate::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.45;background-image:radial-gradient(1px 1px at 14% 16%,#b6eaff 95%,transparent),radial-gradient(1px 1px at 80% 23%,#b6eaff 95%,transparent),radial-gradient(2px 2px at 69% 76%,#62f2d6 95%,transparent),radial-gradient(1px 1px at 26% 82%,white 95%,transparent);animation:tcV96Stars 8s ease-in-out infinite alternate}
+#tcAuthGate .tc-gate-card{width:min(100%,430px)!important;padding:36px 26px 28px!important;border-radius:32px!important;background:linear-gradient(155deg,#152c42f5,#091627f9)!important;border:1px solid #356b78!important;box-shadow:0 35px 100px #000b,0 0 60px #18d9c215!important;z-index:1}
+#tcAuthGate .tc-gate-logo{width:124px!important;height:124px!important;border-radius:32px!important;margin-bottom:24px!important;background:radial-gradient(circle at 50% 40%,#214a61,#102237 70%)!important;box-shadow:0 0 0 1px #52d7ce55,0 0 35px #31e4c425!important}
+#tcAuthGate .tcGateRocketArt{width:115%!important;height:115%!important;animation:tcV96Rocket 2.8s ease-in-out infinite!important}
+#tcAuthGate .tc-gate-kicker{letter-spacing:3px!important;font-size:10px!important;color:#8cbdc8!important}
+#tcAuthGate .tc-gate-card h2{font-size:clamp(28px,7vw,36px)!important;letter-spacing:-1.2px!important;margin:12px 0!important;color:#55f0c7!important}
+#tcAuthGate #tcAuthMessage{font-size:15px!important;min-height:54px!important;margin:14px 0 20px!important;color:#c8d9e6!important}
+#tcAuthGate .tc-gate-progress{height:7px!important;background:#20394a!important;margin:18px 0 12px!important;box-shadow:inset 0 2px 6px #0008!important}
+#tcAuthGate .tc-gate-progress>span{width:38%!important;animation:tcV96Progress 2.3s ease-in-out infinite!important;background:linear-gradient(90deg,#2db7f4,#55f7c1)!important;box-shadow:0 0 16px #40f1c7!important}
+#tcAuthGate .tc-gate-stage{font-size:12px!important;letter-spacing:.5px!important;margin-bottom:14px!important}
+#tcAuthGate #tcAuthOpenBot,#tcAuthGate #tcAuthRetry{font-size:14px!important;border-radius:16px!important;min-height:50px!important}
+#tcAuthGate:not(.tc-gate-error):not(.tc-v96-delayed) #tcAuthOpenBot,#tcAuthGate:not(.tc-gate-error):not(.tc-v96-delayed) #tcAuthRetry{display:none!important}
+#tcAuthGate .tc-gate-secure{font-size:12px!important;margin-top:20px!important}
+#tcAuthGate.tc-gate-error .tc-gate-progress>span{animation:none!important;width:100%!important;background:#ffad72!important}
+@keyframes tcV96Rocket{0%,100%{transform:translateY(3px) rotate(-2deg)}50%{transform:translateY(-9px) rotate(3deg)}}
+@keyframes tcV96Progress{0%{transform:translateX(-100%)}50%{transform:translateX(95%)}100%{transform:translateX(270%)}}
+@keyframes tcV96Stars{to{opacity:.9;transform:translateY(-10px)}}
+@media(max-height:740px){#tcAuthGate .tc-gate-card{padding:20px!important}#tcAuthGate .tc-gate-logo{width:88px!important;height:88px!important;margin-bottom:12px!important}#tcAuthGate .tc-gate-card h2{margin:6px 0!important}}
+@media(prefers-reduced-motion:reduce){#tcAuthGate .tcGateRocketArt,#tcAuthGate .tc-gate-progress>span,#tcAuthGate::after{animation:none!important}}
+</style><script id="tc-v96-gate-fallback">(()=>{const gate=document.getElementById('tcAuthGate');if(!gate)return;setTimeout(()=>{if(document.body.classList.contains('tc-locked'))gate.classList.add('tc-v96-delayed')},12000)})();</script></body></html>
