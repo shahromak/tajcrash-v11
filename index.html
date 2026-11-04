@@ -956,4 +956,30 @@ function cashTouch(){if(!touch?.active)return;touch.active=false;clearInterval(t
 const actions={minesStart:startMine,minesCash:cashMine,bjDeal:startBJ,bjHit:()=>{if(!bj?.active)return;bj.player.push(card());drawBJ();if(score(bj.player)>=21)endBJ()},bjStand:endBJ,touchStart:startTouch,touchCash:cashTouch};
 document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b||!ids.has(b.id)||b.disabled)return;e.preventDefault();e.stopImmediatePropagation();try{actions[b.id]()}catch(err){const status=b.id.startsWith('mines')?'minesStatus':b.id.startsWith('bj')?'bjStatus':'touchStatus';$(status).textContent='Ошибка игры: '+err.message;console.error(err)}},true);
 drawMine();
+})();</script><style id="tc-v91-results-css">
+.tcResultV91{display:none;position:relative;overflow:hidden;margin:14px 0;padding:18px;border:2px solid #ff477f;border-radius:22px;background:linear-gradient(135deg,#301a39,#14192f);box-shadow:0 0 24px #ff477f33;color:#fff;text-align:center;animation:tcResultEnter .35s ease-out}
+.tcResultV91.show{display:block}.tcResultV91.win{border-color:#30e5ac;background:linear-gradient(135deg,#093f3b,#102b39);box-shadow:0 0 28px #30e5ac40}
+.tcResultV91 .tcResultIcon{font-size:34px}.tcResultV91 .tcResultTitle{font-weight:950;font-size:27px;letter-spacing:1px;margin:4px 0}.tcResultV91 .tcResultInfo{font-size:16px;color:#e4e8f2;overflow-wrap:anywhere}
+@keyframes tcResultEnter{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:none}}
+</style><script id="tc-v91-results-js">(()=>{
+const specs=[['crash','status'],['penalty','penStatus'],['mines','minesStatus'],['blackjack','bjStatus'],['touchcrash','touchStatus']];
+const wins=/победа|выигрыш|получено|забрано|гол!|гол!|гол —|выиграл/i;
+const losses=/проигрыш|проиграл|потерян|мина!|crash|взорвалась|промах|отбил|раунд завершился|раунд завершён/i;
+for(const [pageId,statusId] of specs){
+ const page=document.getElementById(pageId),status=document.getElementById(statusId);if(!page||!status)continue;
+ const result=document.createElement('div');result.className='tcResultV91';result.setAttribute('role','status');result.setAttribute('aria-live','polite');result.innerHTML='<div class="tcResultIcon"></div><div class="tcResultTitle"></div><div class="tcResultInfo"></div>';
+ status.insertAdjacentElement('beforebegin',result);let previous='',lastKind='';
+ const render=()=>{const message=(status.textContent||'').trim();if(!message||message===previous)return;previous=message;
+ const win=wins.test(message),loss=!win&&losses.test(message);if(!win&&!loss){result.classList.remove('show');lastKind='';return}
+ const kind=win?'win':'loss';if(kind===lastKind&&result.classList.contains('show')&&message===result.querySelector('.tcResultInfo').textContent)return;
+ lastKind=kind;result.classList.toggle('win',win);result.classList.add('show');
+ result.querySelector('.tcResultIcon').textContent=win?'🏆':'💥';
+ result.querySelector('.tcResultTitle').textContent=win?'ПОБЕДА!':'ПРОИГРЫШ!';
+ result.querySelector('.tcResultInfo').textContent=message;
+ };
+ new MutationObserver(render).observe(status,{childList:true,characterData:true,subtree:true});render();
+ // Starting a fresh round clears the previous result immediately.
+ const startIds={crash:['start'],penalty:['penReset'],mines:['minesStart'],blackjack:['bjDeal'],touchcrash:['touchStart']}[pageId];
+ for(const id of startIds){const b=document.getElementById(id);if(b)b.addEventListener('click',()=>{result.classList.remove('show');previous='';lastKind=''},true)}
+}
 })();</script></body></html>
