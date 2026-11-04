@@ -996,4 +996,24 @@ if(id==='blackjack'||id==='mines')target.appendChild(result);
 else if(id==='touchcrash'){const display=page.querySelector('#touchMult')?.parentElement;if(display)display.insertAdjacentElement('afterend',result)}
 else{const score=page.querySelector('.penaltyScore');if(score)score.insertAdjacentElement('beforebegin',result)}
 }
+})();</script><style id="tc-v93-outcome-style">
+.tcV93Outcome{position:absolute!important;left:5%!important;right:5%!important;top:50%!important;transform:translateY(-50%)!important;z-index:9999!important;display:none!important;pointer-events:none!important;text-align:center!important;border:3px solid #ff477e!important;border-radius:24px!important;background:linear-gradient(135deg,rgba(58,17,46,.97),rgba(24,14,37,.97))!important;color:white!important;padding:24px 12px!important;box-shadow:0 0 45px #f35a8080!important}
+.tcV93Outcome.tcV93Visible{display:block!important}.tcV93Outcome.tcV93Win{border-color:#2bf2ad!important;background:linear-gradient(135deg,rgba(8,74,63,.97),rgba(12,39,44,.97))!important;box-shadow:0 0 45px #2bf2ad80!important}
+.tcV93Outcome strong{display:block;font-size:clamp(23px,7vw,38px);line-height:1.2}.tcV93Outcome small{display:block;font-size:16px;margin-top:10px;color:#f1f5f9}
+#blackjack .cardTable,#mines #minesGrid,#touchcrash .touchDisplay,#touchcrash .card,#crash .card,#penalty .card{position:relative!important}
+</style><script id="tc-v93-outcome-js">(()=>{
+const setups=[['blackjack','bjStatus','.cardTable',['bjDeal']],['mines','minesStatus','#minesGrid',['minesStart']],['touchcrash','touchStatus','.card',['touchStart']],['crash','status','.card',['start']],['penalty','penStatus','.card',['penReset']]];
+for(const [id,statusId,anchorSel,startIds] of setups){try{
+ const page=document.getElementById(id),status=document.getElementById(statusId),anchor=page?.querySelector(anchorSel);if(!page||!status||!anchor)continue;
+ const old=page.querySelector('.tcResultV91');if(old)old.style.setProperty('display','none','important');
+ const box=document.createElement('div');box.className='tcV93Outcome';box.innerHTML='<strong></strong><small></small>';anchor.appendChild(box);
+ let last='';const render=()=>{const msg=(status.textContent||'').trim();if(msg===last)return;last=msg;
+ const win=/победа|выигрыш|получено|забрано|выиграл|гол!/i.test(msg);
+ const lose=!win&&/проигрыш|проиграл|потерян|мина!|взорвалась|промах|отбил|раунд завершён|раунд завершился/i.test(msg);
+ if(!win&&!lose){box.classList.remove('tcV93Visible');return}
+ box.classList.toggle('tcV93Win',win);box.querySelector('strong').textContent=win?'🏆 ПОБЕДА!':'💥 ПРОИГРЫШ!';box.querySelector('small').textContent=msg;box.classList.add('tcV93Visible');
+ };
+ new MutationObserver(render).observe(status,{childList:true,subtree:true,characterData:true});render();
+ for(const bid of startIds){const btn=document.getElementById(bid);if(btn)btn.addEventListener('click',()=>{box.classList.remove('tcV93Visible');last=''},true)}
+ }catch(err){console.warn('TajCrash outcome',id,err)}}
 })();</script></body></html>
